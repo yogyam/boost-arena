@@ -18,8 +18,8 @@ Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-so
 Needs Python 3.11 or newer. Works on Linux, macOS (Apple Silicon) and Windows.
 
 ```bash
-git clone <this repository>
-cd BoostArena
+git clone https://github.com/yogyam/boost-arena.git
+cd boost-arena
 pip install -e .
 
 boost-arena tasks                 # List the tasks
