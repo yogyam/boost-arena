@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boost-arena"
+version = "0.1.0"
+description = "An open, task-based benchmark for car-football bots, scored in the RocketSim simulator"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "onnx",
+    "onnxruntime",
+    "rocketsim==2.2.1",
+    # Brings the arena collision files that the simulator needs
+    "rlgym-rocket-league[sim]==2.0.1",
+]
+
+[project.optional-dependencies]
+# Only needed to convert checkpoints from other training frameworks
+convert = ["torch"]
+dev = ["pytest"]
+
+[project.scripts]
+boost-arena = "boost_arena.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
