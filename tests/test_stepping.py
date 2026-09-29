@@ -27,7 +27,6 @@ def trajectory():
 
 def replay(trajectory):
     game = Game(with_opponent=True)
-    game.reset(seed=0)
 
     ball = trajectory["initial_ball"]
     game.set_ball(ball["pos"], ball["vel"], ball["ang_vel"])
@@ -73,7 +72,6 @@ def test_previous_action_is_reported(trajectory):
 
 def test_time_advances():
     game = Game(with_opponent=False)
-    game.reset(seed=0)
     for _ in range(15):
         game.step([0])
     assert game.seconds == pytest.approx(1.0)
@@ -81,9 +79,73 @@ def test_time_advances():
 
 def test_scoring_team():
     game = Game(with_opponent=False)
-    game.reset(seed=0)
     assert game.scoring_team() is None
     game.set_ball((0, 5300, 100))
     assert game.scoring_team() == interface.BLUE
     game.set_ball((0, -5300, 100))
     assert game.scoring_team() == interface.ORANGE
+
+
+def test_a_demolished_car_stays_out():
+    # The blue car drives into the orange one at full speed
+    game = Game(with_opponent=True)
+    game.set_car(0, (0, 0, 17), yaw=0.0, vel=(2300, 0, 0))
+    game.set_car(1, (700, 0, 17), yaw=1.57)
+    full_speed_ahead = 18   # Throttle and boost, no steering
+    assert list(interface.ACTION_TABLE[full_speed_ahead]) == [1, 0, 0, 0, 0, 0, 1, 0]
+
+    for _ in range(8):
+        game.step([full_speed_ahead, 0])
+    wreck = game.car_infos()[1]
+    assert wreck.is_demoed
+    where = wreck.pos.copy()
+
+    for _ in range(15 * 8):   # Eight seconds, well past the simulator's usual three
+        game.step([full_speed_ahead, 0])
+
+    wreck = game.car_infos()[1]
+    assert wreck.is_demoed
+    np.testing.assert_array_equal(wreck.pos, where)
+
+
+def test_reset_leaves_nothing_behind():
+    def play(game):
+        game.reset()
+        game.set_ball((0, 1000, 93.15), (300, 200, 0))
+        game.set_car(0, (-500, -200, 17), yaw=0.7)
+        game.set_car(1, (400, 2500, 17), yaw=-2.0)
+        for step in range(45):
+            game.step([(step * 7) % 24, (step * 5) % 24])
+        ball, cars = game.ball_info(), game.car_infos()
+        return np.concatenate([ball.pos, ball.vel] + [np.concatenate([c.pos, c.vel, c.forward]) for c in cars])
+
+    fresh = play(Game(with_opponent=True))
+
+    used = Game(with_opponent=True)
+    used.set_ball((0, 0, 500), (2000, 1500, 300))
+    used.set_car(0, (1000, 1000, 17), yaw=2.0)
+    used.set_car(1, (1200, 1000, 17), yaw=-1.0)
+    for step in range(200):
+        used.step([(step * 11) % 90 if step % 3 else 5, 3])
+
+    np.testing.assert_array_equal(play(used), fresh)
+
+
+def test_the_physics_settings_are_in_force():
+    from boost_arena import sim
+
+    game = Game(with_opponent=True)
+    for _ in range(2):   # They must survive a reset too
+        mutators = game.arena.get_mutator_config()
+        assert mutators.boost_used_per_second == sim.BOOST_USED_PER_SECOND
+        assert mutators.car_spawn_boost_amount == sim.CAR_SPAWN_BOOST
+        assert mutators.respawn_delay == sim.RESPAWN_DELAY
+        assert [car.get_config().hitbox_size.x for car in game.cars] == [game.cars[0].get_config().hitbox_size.x] * 2
+        game.reset()
+
+    # Two seconds of boosting uses two boost. At the simulator's usual rate it would use 67.
+    game.set_car(0, (-3000, -4000, 17), yaw=0.8)
+    game.set_car(1, (3000, 4000, 17), yaw=0.0)
+    for _ in range(30):
+        game.step([18, 0])
+    assert game.car_infos()[0].boost == pytest.approx(98, abs=0.3)

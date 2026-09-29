@@ -17,12 +17,12 @@ def test_scores_repeat_and_add_up():
     second = run_task(policy, task, episodes=12, seed=3, arenas=6, time_limit=2.0)
 
     assert first.episodes == 12
-    assert first.successes + first.own_goals + first.timeouts == 12
+    assert first.successes + first.conceded + first.timeouts == 12
     assert 0 <= first.success_rate_low <= first.success_rate <= first.success_rate_high <= 1
     assert not first.official
 
     # The same seed gives the same result, however many games run side by side
-    assert (first.successes, first.own_goals, first.timeouts) == (second.successes, second.own_goals, second.timeouts)
+    assert (first.successes, first.conceded, first.timeouts) == (second.successes, second.conceded, second.timeouts)
     assert first.mean_seconds_to_score == second.mean_seconds_to_score
 
 
@@ -42,3 +42,13 @@ def test_situations_depend_only_on_the_seed():
     ball, car = positions[0]
     assert ball[1] > 0
     assert np.hypot(car[0], car[1] - 5120) > np.hypot(ball[0], ball[1] - 5120)
+
+
+def test_full_length_episodes_do_not_depend_on_how_many_run_side_by_side():
+    from boost_arena.policy import uniform_model
+
+    policy = Policy(uniform_model())
+    for key in ("pass", "penalty"):
+        results = [run_task(policy, TASKS[key], episodes=24, seed=1, arenas=arenas) for arenas in (1, 5, 24)]
+        counts = [(r.successes, r.conceded, r.timeouts, r.mean_seconds_to_score) for r in results]
+        assert counts[0] == counts[1] == counts[2]

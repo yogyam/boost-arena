@@ -120,11 +120,22 @@ A decision therefore takes effect 7 ticks (58 ms) after it is made, which stands
 |---|---|---|
 | Boost used per second | 1 | 33.3 |
 | Boost when a car spawns | 0 | 33.3 |
+| Respawn after a demolition | Never | After 3 seconds |
 | Car | Plank | |
 
 Tasks start every car with 100 boost. At 1 per second it outlasts any episode.
 
 Everything else is the simulator's default for Soccar.
+
+## Demolitions
+
+A demolished car is out for the rest of the episode. Its "demolished" flag is 1 and its position, direction and velocity stay as they were at the moment it was hit.
+
+The simulator would normally bring the car back after three seconds, at a spawn point it picks at random. That choice can't be seeded, so with respawning on, scoring the same model twice could give different results.
+
+## Clean starts
+
+Every episode is played in a fresh copy of an untouched arena. Nothing from one episode, down to the state of a car's suspension, can affect another. An episode therefore plays out the same way whatever was played before it and however many episodes run side by side.
 
 ## Versions
 

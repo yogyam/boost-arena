@@ -176,3 +176,25 @@ class Policy:
         for i, row in enumerate(probabilities):
             actions[i] = rngs[i].choice(interface.NUM_ACTIONS, p=row)
         return actions
+
+
+def uniform_model() -> bytes:
+    """A model that gives every action the same logit, so the bot picks among its allowed actions at random.
+
+    Useful as a baseline, and for checking that a scoring setup works.
+    """
+    from onnx import helper, numpy_helper
+
+    graph = helper.make_graph(
+        [helper.make_node("Gemm", ["obs", "weight", "bias"], ["logits"], transB=1)],
+        "uniform_policy",
+        [helper.make_tensor_value_info("obs", onnx.TensorProto.FLOAT, ["N", interface.OBS_SIZE])],
+        [helper.make_tensor_value_info("logits", onnx.TensorProto.FLOAT, ["N", interface.NUM_ACTIONS])],
+        [
+            numpy_helper.from_array(np.zeros((interface.NUM_ACTIONS, interface.OBS_SIZE), dtype=np.float32), "weight"),
+            numpy_helper.from_array(np.zeros(interface.NUM_ACTIONS, dtype=np.float32), "bias"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)], producer_name="boost-arena")
+    model.ir_version = 8
+    return model.SerializeToString()

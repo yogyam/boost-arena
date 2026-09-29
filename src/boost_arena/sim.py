@@ -15,8 +15,12 @@ SIMULATOR_VERSION = "2.2.1"
 BOOST_USED_PER_SECOND = 1.0
 CAR_SPAWN_BOOST = 0.0
 CAR_BODY = rs.CarConfig.PLANK
+# A demolished car is out for the rest of the episode. The simulator would bring it back at a
+# spawn point it picks at random, which cannot be seeded, so no two runs would be the same.
+RESPAWN_DELAY = 1e9
 
 _initialized = False
+_pristine_arenas = {}
 
 
 def _collision_mesh_folder():
@@ -52,37 +56,81 @@ def rot_mat_from_yaw(yaw: float) -> rs.RotMat:
     return rs.Angle(float(yaw), 0.0, 0.0).as_rot_mat()
 
 
+_ball_only_arena = None
+
+
+def ball_path(pos, vel, seconds: float, ang_vel=(0, 0, 0)):
+    """Where an untouched ball goes: its position at every tick, as an array of shape (ticks, 3)."""
+    global _ball_only_arena
+    init()
+    if _ball_only_arena is None:
+        _ball_only_arena = rs.Arena(rs.GameMode.SOCCAR)   # Making an arena is slow, so one is kept
+    arena = _ball_only_arena
+
+    state = rs.BallState()
+    state.pos = _rs_vec(pos)
+    state.vel = _rs_vec(vel)
+    state.ang_vel = _rs_vec(ang_vel)
+    arena.ball.set_state(state)
+
+    path = np.empty((int(seconds * interface.TICK_RATE), 3), dtype=np.float32)
+    for tick in range(len(path)):
+        arena.step(1)
+        path[tick] = _vec(arena.ball.get_state().pos)
+    return path
+
+
 class Game:
     """One arena with a blue car and, optionally, an orange car."""
 
     def __init__(self, with_opponent: bool = True):
         init()
-        self.arena = rs.Arena(rs.GameMode.SOCCAR)
+        self._with_opponent = with_opponent
 
-        mutators = self.arena.get_mutator_config()
+        # An arena that is never played in. Every episode is played in a fresh copy of it, so
+        # nothing an episode leaves behind, down to the state of the suspension, can affect the
+        # next one. Resetting an arena in place is faster but does not clear everything.
+        if with_opponent not in _pristine_arenas:
+            _pristine_arenas[with_opponent] = self._new_arena(with_opponent)
+        self._pristine = _pristine_arenas[with_opponent]
+
+        self.arena = None
+        self._goal_line = None
+        self.reset()
+
+    @staticmethod
+    def _apply_rules(arena):
+        mutators = arena.get_mutator_config()
         mutators.boost_used_per_second = BOOST_USED_PER_SECOND
         mutators.car_spawn_boost_amount = CAR_SPAWN_BOOST
-        self.arena.set_mutator_config(mutators)
-        self._goal_line = mutators.goal_base_threshold_y + mutators.ball_radius
+        mutators.respawn_delay = RESPAWN_DELAY
+        arena.set_mutator_config(mutators)
+        return mutators
 
-        self.cars = [self.arena.add_car(rs.Team.BLUE, CAR_BODY)]
+    @staticmethod
+    def _new_arena(with_opponent):
+        arena = rs.Arena(rs.GameMode.SOCCAR)
+        Game._apply_rules(arena)
+
+        arena.add_car(rs.Team.BLUE, CAR_BODY)
         if with_opponent:
-            self.cars.append(self.arena.add_car(rs.Team.ORANGE, CAR_BODY))
-
-        self.prev_actions = np.zeros((len(self.cars), 8), dtype=np.float32)
-        self.ticks = 0
+            arena.add_car(rs.Team.ORANGE, CAR_BODY)
+        return arena
 
     # ---- Setting up a situation ----
 
-    def reset(self, seed: int = -1):
-        """Puts the ball and cars in a kickoff position and clears everything left over from the last episode."""
-        self.arena.reset_kickoff(seed)
-        for car in self.cars:
-            car.set_controls(rs.CarControls())
-            state = car.get_state()
-            state.boost = 100.0
-            car.set_state(state)
-        self.prev_actions[:] = 0
+    def reset(self):
+        """Starts from a clean arena. The ball and cars must then be placed."""
+        self.arena = self._pristine.clone()
+        # A copy comes with the simulator's default settings, not the original's
+        mutators = self._apply_rules(self.arena)
+        self._goal_line = mutators.goal_base_threshold_y + mutators.ball_radius
+
+        # Blue first, then orange
+        self.cars = sorted(self.arena.get_cars(), key=lambda car: int(car.team))
+        assert [int(car.team) for car in self.cars] == [BLUE, ORANGE][: len(self.cars)]
+
+        self.prev_actions = np.zeros((len(self.cars), 8), dtype=np.float32)
         self.ticks = 0
 
     def set_ball(self, pos, vel=(0, 0, 0), ang_vel=(0, 0, 0)):
@@ -150,15 +198,25 @@ class Game:
 
     # ---- Playing ----
 
-    def step(self, action_indices):
-        """Advances one decision step. `action_indices` holds one index into the action table per car."""
+    def step(self, action_indices, scripted=None):
+        """Advances one decision step.
+
+        `action_indices` holds one index into the action table per car. `scripted` maps a car's
+        index to simulator controls, for cars driven by a fixed program instead of a model;
+        their entry in `action_indices` is ignored. Scripted cars get the same action delay.
+        """
         if len(action_indices) != len(self.cars):
             raise ValueError("Expected one action per car")
+        scripted = scripted or {}
 
         # The cars keep doing what they were doing until the new decision takes effect
         self.arena.step(interface.ACTION_DELAY)
 
         for i, car in enumerate(self.cars):
+            if i in scripted:
+                car.set_controls(scripted[i])
+                continue
+
             action = interface.ACTION_TABLE[int(action_indices[i])]
             controls = rs.CarControls()
             controls.throttle = float(action[interface.THROTTLE])

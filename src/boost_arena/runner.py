@@ -7,10 +7,11 @@ from dataclasses import asdict, dataclass
 import numpy as np
 
 from . import __version__, interface
-from .interface import BLUE
 from .policy import Policy
 from .sim import SIMULATOR_VERSION, Game
-from .tasks import Task
+from .tasks import CONCEDED, SUCCESS, TASK_SET_VERSION, Task
+
+OFFICIAL_EPISODES = 1000
 
 
 @dataclass
@@ -18,22 +19,28 @@ class TaskResult:
     task: str
     episodes: int
     successes: int
-    own_goals: int
-    timeouts: int
+    conceded: int             # Episodes that ended with the ball in the bot's own goal
+    timeouts: int             # Episodes that ran out of time without success
     success_rate: float
     success_rate_low: float   # 95% confidence interval
     success_rate_high: float
-    mean_seconds_to_score: float  # Over successful episodes, 0 if there were none
+    mean_seconds_to_score: float  # Over episodes won by scoring, 0 if there were none
     time_limit: float
     seed: int
     sampled: bool
     official: bool
     interface_version: int = interface.INTERFACE_VERSION
+    task_set_version: int = TASK_SET_VERSION
     simulator_version: str = SIMULATOR_VERSION
     benchmark_version: str = __version__
 
     def to_dict(self):
         return asdict(self)
+
+
+def overall_score(results) -> float:
+    """One number for a bot: its average success rate over the tasks, out of 100."""
+    return 100 * sum(r.success_rate for r in results) / len(results) if results else 0.0
 
 
 def _wilson_interval(successes, n, z=1.96):
@@ -55,21 +62,20 @@ def _episode_rngs(task: Task, seed: int, episode: int):
     return np.random.default_rng([seed, task_id, episode, 0]), np.random.default_rng([seed, task_id, episode, 1])
 
 
-def run_task(policy: Policy, task: Task, episodes: int = 1000, seed: int = 0, sampled: bool = True,
+def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed: int = 0, sampled: bool = True,
              arenas: int = 32, time_limit: float = None, on_progress=None) -> TaskResult:
     """Scores `policy` on `task`.
 
-    `time_limit` overrides the task's own limit. A result with an override is not official.
+    `time_limit` overrides the task's own limit. A result with an override, or with a
+    different number of episodes than the official one, is not official.
     """
-    if task.with_opponent:
-        raise NotImplementedError("Tasks with an opponent are not available yet")
-
     limit = task.time_limit if time_limit is None else time_limit
     arenas = min(arenas, episodes)
-    games = [Game(with_opponent=False) for _ in range(arenas)]
+    games = [Game(with_opponent=task.with_opponent) for _ in range(arenas)]
 
     next_episode = 0
     action_rngs = [None] * arenas
+    kept = [None] * arenas
     active = [False] * arenas
 
     def start(slot):
@@ -78,37 +84,45 @@ def run_task(policy: Policy, task: Task, episodes: int = 1000, seed: int = 0, sa
             active[slot] = False
             return
         setup_rng, action_rngs[slot] = _episode_rngs(task, seed, next_episode)
-        task.setup(games[slot], setup_rng)
+        kept[slot] = task.setup(games[slot], setup_rng)
         active[slot] = True
         next_episode += 1
 
     for slot in range(arenas):
         start(slot)
 
-    successes = own_goals = timeouts = finished = 0
+    successes = conceded = timeouts = finished = scored = 0
     seconds_to_score = 0.0
 
     while any(active):
         slots = [slot for slot in range(arenas) if active[slot]]
-        observed = [games[slot].observe() for slot in slots]
-        obs = np.concatenate([o for o, _ in observed])
-        masks = np.concatenate([m for _, m in observed])
+
+        states = []
+        for slot in slots:
+            ball, cars = games[slot].ball_info(), games[slot].car_infos()
+            states.append((ball, cars))
+        # The bot always drives car 0
+        obs = np.stack([interface.build_observation(ball, cars, 0) for ball, cars in states])
+        masks = np.stack([interface.action_mask(cars[0]) for _, cars in states])
 
         actions = policy.act(obs, masks, [action_rngs[slot] for slot in slots] if sampled else None)
 
-        for slot, action in zip(slots, actions):
+        for slot, action, (ball, cars) in zip(slots, actions, states):
             game = games[slot]
-            game.step([action])
+            game.step([action] + [0] * (len(game.cars) - 1), scripted=task.scripted(game, kept[slot], ball, cars))
 
-            scorer = game.scoring_team()
-            if scorer is None and game.seconds < limit:
+            outcome = task.outcome(game)
+            if outcome is None and game.seconds < limit:
                 continue
 
-            if scorer == BLUE:
+            if outcome == SUCCESS:
                 successes += 1
+                scored += 1
                 seconds_to_score += game.seconds
-            elif scorer is not None:
-                own_goals += 1
+            elif outcome == CONCEDED:
+                conceded += 1
+            elif task.survive:
+                successes += 1
             else:
                 timeouts += 1
 
@@ -122,14 +136,14 @@ def run_task(policy: Policy, task: Task, episodes: int = 1000, seed: int = 0, sa
         task=task.key,
         episodes=finished,
         successes=successes,
-        own_goals=own_goals,
+        conceded=conceded,
         timeouts=timeouts,
         success_rate=successes / finished if finished else 0.0,
         success_rate_low=low,
         success_rate_high=high,
-        mean_seconds_to_score=seconds_to_score / successes if successes else 0.0,
+        mean_seconds_to_score=seconds_to_score / scored if scored else 0.0,
         time_limit=limit,
         seed=seed,
         sampled=sampled,
-        official=time_limit is None,
+        official=time_limit is None and episodes == OFFICIAL_EPISODES and sampled,
     )
