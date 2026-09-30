@@ -48,7 +48,7 @@ Open the pull request. A check runs within a minute or two and reports whether t
 
 ## 4. Wait for the score
 
-A maintainer looks over the pull request and merges it. Scoring then runs on its own: it takes a few minutes, and the result appears on the leaderboard and in `results/my-bot.json`. If the model couldn't be scored, the reason appears on the leaderboard under "Not scored".
+A maintainer looks over the pull request and merges it. Scoring then runs on its own: it takes a few minutes, and the result appears on the leaderboard and in `results/my-bot.json`, with replays of the first five episodes of each task under "Watch". If the model couldn't be scored, the reason appears on the leaderboard under "Not scored".
 
 ## Updating a bot
 

@@ -4,7 +4,9 @@ import datetime
 import html
 import json
 import os
+import shutil
 
+from .submissions import REPLAYS_SUFFIX
 from .tasks import TASKS
 
 DISCLAIMER = (
@@ -89,7 +91,7 @@ def render(documents: list) -> str:
     head = ['<th data-sort="number">#</th>', '<th class="text" data-sort="text">Bot</th>', '<th class="text" data-sort="text">Author</th>',
             '<th data-sort="number">Overall</th>']
     head += [f'<th data-sort="number" title="{_e(TASKS[key].description)}">{_e(TASKS[key].name)}</th>' for key in task_keys]
-    head += ['<th data-sort="text">Scored</th>']
+    head += ['<th data-sort="text">Scored</th>', '<th class="text">Replays</th>']
 
     rows = []
     for rank, document in enumerate(scored, start=1):
@@ -115,6 +117,10 @@ def render(documents: list) -> str:
                 title += f", {result['mean_seconds_to_score']:.1f} s to score on average"
             cells.append(f'<td data-value="{result["success_rate"]:.6f}" title="{_e(title)}">{result["success_rate"]:.1%}</td>')
         cells.append(f'<td data-value="{_e(document["scored_at"])}"><span class="small">{_e(document["scored_at"][:10])}</span></td>')
+        if document.get("_has_replays"):
+            cells.append(f'<td class="text"><a href="replay.html?bot={_e(document["_slug"])}">Watch</a></td>')
+        else:
+            cells.append('<td class="text"><span class="small">–</span></td>')
         rows.append("<tr>" + "".join(cells) + "</tr>")
 
     if rows:
@@ -145,7 +151,7 @@ def render(documents: list) -> str:
 <p class="lead">An open benchmark for car-football bots. Every bot faces the same six tasks, 1,000 times each, in the RocketSim simulator.
 <a href="https://github.com/yogyam/boost-arena">How to enter</a> · <a href="https://github.com/yogyam/boost-arena/blob/main/docs/TASKS.md">The tasks</a></p>
 {table}
-<p class="small">Success rates over 1,000 episodes per task. Overall is the average of the six, out of 100. Hover a score for its confidence interval. Click a column heading to sort.</p>
+<p class="small">Success rates over 1,000 episodes per task. Overall is the average of the six, out of 100. Hover a score for its confidence interval. Click a column heading to sort. Replays show the first five episodes of each task, which are the same situations for every bot.</p>
 {failed_html}
 <footer><p>{DISCLAIMER}</p><p>Built {built}.</p></footer>
 </main>
@@ -155,14 +161,28 @@ def render(documents: list) -> str:
 """
 
 
-def build_site(results_folder: str, output_folder: str) -> str:
+def build_site(results_folder: str, output_folder: str, replays_folder: str = None) -> str:
     documents = load_results(results_folder)
-    os.makedirs(output_folder, exist_ok=True)
+    os.makedirs(os.path.join(output_folder, "replays"), exist_ok=True)
+
+    # Replays are copied next to the page, one compressed file per bot
+    for document in documents:
+        source = os.path.join(replays_folder, document["_slug"] + REPLAYS_SUFFIX) if replays_folder else None
+        document["_has_replays"] = bool(source and os.path.isfile(source))
+        if document["_has_replays"]:
+            shutil.copyfile(source, os.path.join(output_folder, "replays", document["_slug"] + REPLAYS_SUFFIX))
+
     path = os.path.join(output_folder, "index.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(render(documents))
 
+    template = os.path.join(os.path.dirname(__file__), "replay.html")
+    with open(template, "r", encoding="utf-8") as f:
+        page = f.read().replace("__TASK_NAMES__", json.dumps({key: task.name for key, task in TASKS.items()}))
+    with open(os.path.join(output_folder, "replay.html"), "w", encoding="utf-8") as f:
+        f.write(page)
+
     # The raw results are published too, for anyone who wants to make their own charts
     with open(os.path.join(output_folder, "results.json"), "w", encoding="utf-8") as f:
-        json.dump([{k: v for k, v in d.items() if k != "_slug"} | {"slug": d["_slug"]} for d in documents], f, indent=1)
+        json.dump([{k: v for k, v in d.items() if not k.startswith("_")} | {"slug": d["_slug"], "has_replays": d.get("_has_replays", False)} for d in documents], f, indent=1)
     return path

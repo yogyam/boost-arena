@@ -30,5 +30,8 @@ boost-arena = "boost_arena.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+boost_arena = ["*.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

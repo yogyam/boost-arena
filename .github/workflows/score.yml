@@ -36,7 +36,7 @@ jobs:
       - name: Score new submissions
         env:
           BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
-        run: boost-arena process-submissions --submissions submissions --results results --output new_results
+        run: boost-arena process-submissions --submissions submissions --results results --replays replays --output new_results
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,7 +71,7 @@ jobs:
           path: new_results
         continue-on-error: true
 
-      - name: Check and add the new results
+      - name: Check and add the new results and replays
         run: |
           if ls new_results/*.json > /dev/null 2>&1; then
             boost-arena validate-results new_results/*.json
@@ -79,12 +79,16 @@ jobs:
           else
             echo "No new results"
           fi
+          if ls new_results/*.replays.json.gz > /dev/null 2>&1; then
+            boost-arena validate-results new_results/*.replays.json.gz
+            cp new_results/*.replays.json.gz replays/
+          fi
 
       - name: Commit
         run: |
           git config user.name "boost-arena scoring"
           git config user.email "scoring@users.noreply.github.com"
-          git add results
+          git add results replays
           if git diff --cached --quiet; then
             echo "Nothing to commit"
           else
@@ -93,7 +97,7 @@ jobs:
           fi
 
       - name: Build the website
-        run: boost-arena build-site --results results --output site
+        run: boost-arena build-site --results results --replays replays --output site
 
       - uses: actions/configure-pages@v5
 

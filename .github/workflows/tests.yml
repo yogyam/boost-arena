@@ -6,10 +6,12 @@ on:
     paths-ignore:
       - "submissions/**"
       - "results/**"
+      - "replays/**"
   pull_request:
     paths-ignore:
       - "submissions/**"
       - "results/**"
+      - "replays/**"
 
 permissions:
   contents: read

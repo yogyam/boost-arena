@@ -7,6 +7,7 @@ writes `results/<slug>.json`. The model itself is never stored by the project.
 """
 
 import datetime
+import gzip
 import hashlib
 import json
 import os
@@ -19,6 +20,10 @@ from .policy import InvalidModel, Policy, check_model
 from .sealed import SealedFileError, is_sealed, open_sealed, seal
 
 MANIFEST_NAME = "submission.json"
+REPLAYS_SUFFIX = ".replays.json.gz"
+RECORDED_EPISODES = 5          # Per task. Every bot's replays are of the same situations
+MAX_REPLAY_BYTES = 4 * 1024 * 1024
+MAX_REPLAY_FRAMES = 2000
 MAX_SEALED_BYTES = 64 * 1024 * 1024 + 4096
 DOWNLOAD_TIMEOUT = 120
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -210,10 +215,13 @@ def verify_submission(folder: str, public_key: str = None, allow_local: bool = F
 
 # ---- Scoring ----
 
-def score_submission(folder: str, private_key: str, allow_local: bool = False, episodes: int = None, on_progress=None) -> dict:
-    """Opens, checks and scores one submission. Returns the result document, which records any failure."""
-    from .runner import OFFICIAL_EPISODES, overall_score, run_task
-    from .tasks import TASKS
+def score_submission(folder: str, private_key: str, allow_local: bool = False, episodes: int = None, on_progress=None):
+    """Opens, checks and scores one submission.
+
+    Returns the result document, which records any failure, and the replays document (or None).
+    """
+    from .runner import FRAMES_PER_SECOND, OFFICIAL_EPISODES, overall_score, run_task
+    from .tasks import TASK_SET_VERSION, TASKS
 
     document = {
         "scored_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -240,18 +248,79 @@ def score_submission(folder: str, private_key: str, allow_local: bool = False, e
             raise SubmissionError(f"The model is not acceptable: {e}") from None
 
         results = []
-        for task in TASKS.values():
-            results.append(run_task(policy, task, episodes=episodes or OFFICIAL_EPISODES, on_progress=on_progress))
+        replays = {"slug": manifest.slug, "fps": FRAMES_PER_SECOND, "interface_version": interface.INTERFACE_VERSION,
+                   "task_set_version": TASK_SET_VERSION, "tasks": {}}
+        for key, task in TASKS.items():
+            result = run_task(policy, task, episodes=episodes or OFFICIAL_EPISODES, on_progress=on_progress,
+                              record_first=RECORDED_EPISODES)
+            results.append(result)
+            replays["tasks"][key] = result.replays
         document["results"] = [r.to_dict() for r in results]
         document["overall_score"] = overall_score(results)
         document["official"] = all(r.official for r in results)
     except SubmissionError as e:
         document["error"] = str(e)
-    return document
+        return document, None
+    return document, replays
 
 
-def submissions_to_score(submissions_folder: str, results_folder: str) -> list:
-    """The submission folders that have no result yet, or whose manifest changed since they were scored."""
+def write_replays(replays: dict, path: str) -> None:
+    with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as f:
+        json.dump(replays, f, separators=(",", ":"))
+
+
+def read_replays(path: str) -> dict:
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def validate_replays_document(document: dict) -> None:
+    """Checks a replays document from the scoring job: numbers of the right shape, nothing else."""
+    from .tasks import TASKS
+
+    if not isinstance(document, dict) or set(document) != {"slug", "fps", "interface_version", "task_set_version", "tasks"}:
+        raise SubmissionError("A replays file must hold exactly slug, fps, interface_version, task_set_version and tasks")
+    if not isinstance(document["slug"], str) or not SLUG_PATTERN.match(document["slug"]):
+        raise SubmissionError("The replays slug is not valid")
+    for field in ("fps", "interface_version", "task_set_version"):
+        if not isinstance(document[field], int):
+            raise SubmissionError(f"'{field}' must be a whole number")
+    if not isinstance(document["tasks"], dict) or set(document["tasks"]) - set(TASKS):
+        raise SubmissionError("The replays refer to unknown tasks")
+
+    def numbers(values, count):
+        if not isinstance(values, list) or len(values) != count:
+            raise SubmissionError("A replay frame has the wrong shape")
+        for value in values:
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or abs(value) > 1e5:
+                raise SubmissionError("A replay frame holds something that is not a sensible number")
+
+    for replays in document["tasks"].values():
+        if not isinstance(replays, list) or len(replays) > RECORDED_EPISODES:
+            raise SubmissionError("Too many replays for a task")
+        for replay in replays:
+            if not isinstance(replay, dict) or set(replay) != {"episode", "frames", "outcome", "seconds"}:
+                raise SubmissionError("A replay must hold exactly episode, frames, outcome and seconds")
+            if not isinstance(replay["episode"], int) or replay["outcome"] not in ("success", "conceded", "timeout"):
+                raise SubmissionError("A replay has a bad episode number or outcome")
+            if not isinstance(replay["seconds"], (int, float)) or not (0 <= replay["seconds"] <= 120):
+                raise SubmissionError("A replay has a bad duration")
+            frames = replay["frames"]
+            if not isinstance(frames, list) or not (1 <= len(frames) <= MAX_REPLAY_FRAMES):
+                raise SubmissionError("A replay has no frames or too many")
+            for frame in frames:
+                if not isinstance(frame, dict) or set(frame) != {"ball", "cars"}:
+                    raise SubmissionError("A replay frame must hold exactly ball and cars")
+                numbers(frame["ball"], 3)
+                if not isinstance(frame["cars"], list) or not (1 <= len(frame["cars"]) <= 2):
+                    raise SubmissionError("A replay frame must hold one or two cars")
+                for car in frame["cars"]:
+                    numbers(car, 10)
+
+
+def submissions_to_score(submissions_folder: str, results_folder: str, replays_folder: str = None) -> list:
+    """The submission folders that have no result yet, whose manifest changed since they were scored,
+    or that were scored before replays were kept."""
     pending = []
     if not os.path.isdir(submissions_folder):
         return pending
@@ -263,10 +332,13 @@ def submissions_to_score(submissions_folder: str, results_folder: str) -> list:
         if os.path.isfile(result_path):
             with open(result_path, "r", encoding="utf-8") as f:
                 try:
-                    if json.load(f).get("manifest_sha256") == manifest_digest(folder):
-                        continue
+                    document = json.load(f)
                 except (json.JSONDecodeError, OSError):
-                    pass
+                    document = {}
+            up_to_date = document.get("manifest_sha256") == manifest_digest(folder)
+            has_replays = replays_folder is None or "error" in document or os.path.isfile(os.path.join(replays_folder, slug + REPLAYS_SUFFIX))
+            if up_to_date and has_replays:
+                continue
         pending.append(folder)
     return pending
 

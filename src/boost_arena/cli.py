@@ -150,13 +150,13 @@ def _cmd_verify_submission(args):
 
 
 def _cmd_process_submissions(args):
-    from .submissions import score_submission, submissions_to_score
+    from .submissions import REPLAYS_SUFFIX, score_submission, submissions_to_score, write_replays
 
     private_key = os.environ.get(PRIVATE_KEY_VARIABLE, "").strip()
     if not private_key:
         raise SystemExit(f"The private key must be in the {PRIVATE_KEY_VARIABLE} environment variable")
 
-    pending = submissions_to_score(args.submissions, args.results)
+    pending = submissions_to_score(args.submissions, args.results, args.replays)
     if args.only:
         pending = [folder for folder in pending if os.path.basename(os.path.normpath(folder)) in args.only]
     if not pending:
@@ -167,13 +167,15 @@ def _cmd_process_submissions(args):
     for folder in pending:
         slug = os.path.basename(os.path.normpath(folder))
         started = time.time()
-        document = score_submission(folder, private_key, allow_local=args.allow_local, episodes=args.episodes,
-                                    on_progress=_progress(slug))
+        document, replays = score_submission(folder, private_key, allow_local=args.allow_local, episodes=args.episodes,
+                                             on_progress=_progress(slug))
         if sys.stderr.isatty():
             print("\r" + " " * 60 + "\r", end="", file=sys.stderr)
         with open(os.path.join(args.output, f"{slug}.json"), "w", encoding="utf-8") as f:
             json.dump(document, f, indent=2)
             f.write("\n")
+        if replays is not None:
+            write_replays(replays, os.path.join(args.output, slug + REPLAYS_SUFFIX))
         if "error" in document:
             print(f"{slug}: not scored, {document['error']}")
         else:
@@ -182,15 +184,20 @@ def _cmd_process_submissions(args):
 
 
 def _cmd_validate_results(args):
-    from .submissions import SubmissionError, validate_result_document
+    from .submissions import MAX_REPLAY_BYTES, REPLAYS_SUFFIX, SubmissionError, read_replays, validate_replays_document, validate_result_document
 
     failed = 0
     for path in args.file:
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                validate_result_document(json.load(f))
+            if path.endswith(REPLAYS_SUFFIX):
+                if os.path.getsize(path) > MAX_REPLAY_BYTES:
+                    raise SubmissionError("The replays file is too large")
+                validate_replays_document(read_replays(path))
+            else:
+                with open(path, "r", encoding="utf-8") as f:
+                    validate_result_document(json.load(f))
             print(f"OK   {path}")
-        except (SubmissionError, json.JSONDecodeError, OSError) as e:
+        except (SubmissionError, json.JSONDecodeError, OSError, EOFError, ValueError) as e:
             print(f"FAIL {path}: {e}")
             failed += 1
     return 1 if failed else 0
@@ -199,7 +206,7 @@ def _cmd_validate_results(args):
 def _cmd_build_site(args):
     from .site import build_site
 
-    path = build_site(args.results, args.output)
+    path = build_site(args.results, args.output, args.replays)
     print(f"Wrote {path}")
     return 0
 
@@ -263,18 +270,20 @@ def main(argv=None):
     process = commands.add_parser("process-submissions", help="Score the submissions that have no result yet (needs the private key)")
     process.add_argument("--submissions", default="submissions")
     process.add_argument("--results", default="results")
-    process.add_argument("--output", default="new_results", help="Where to write the new result files")
+    process.add_argument("--replays", default="replays")
+    process.add_argument("--output", default="new_results", help="Where to write the new result and replay files")
     process.add_argument("--only", nargs="*", help="Only these slugs")
     process.add_argument("--episodes", type=int, default=None, help=argparse.SUPPRESS)
     process.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
     process.set_defaults(run=_cmd_process_submissions)
 
-    validate = commands.add_parser("validate-results", help="Check result files before they are published")
+    validate = commands.add_parser("validate-results", help="Check result and replay files before they are published")
     validate.add_argument("file", nargs="+")
     validate.set_defaults(run=_cmd_validate_results)
 
     site = commands.add_parser("build-site", help="Build the leaderboard website")
     site.add_argument("--results", default="results")
+    site.add_argument("--replays", default="replays")
     site.add_argument("--output", default="site")
     site.set_defaults(run=_cmd_build_site)
 

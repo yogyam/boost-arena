@@ -2,7 +2,7 @@
 
 import math
 import zlib
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
@@ -33,9 +33,27 @@ class TaskResult:
     task_set_version: int = TASK_SET_VERSION
     simulator_version: str = SIMULATOR_VERSION
     benchmark_version: str = __version__
+    replays: list = field(default_factory=list, repr=False, compare=False)   # Not part of the result document
 
     def to_dict(self):
-        return asdict(self)
+        document = asdict(self)
+        del document["replays"]
+        return document
+
+
+FRAMES_PER_SECOND = interface.TICK_RATE // interface.TICK_SKIP
+
+
+def _frame(ball, cars):
+    """One replay frame: the ball's position and each car's position, orientation and state, rounded."""
+    return {
+        "ball": [round(float(v), 1) for v in ball.pos],
+        "cars": [
+            [round(float(v), 1) for v in car.pos] + [round(float(v), 3) for v in car.forward] + [round(float(v), 3) for v in car.up]
+            + [int(car.is_on_ground) + 2 * int(car.is_demoed)]
+            for car in cars
+        ],
+    }
 
 
 def overall_score(results) -> float:
@@ -63,11 +81,14 @@ def _episode_rngs(task: Task, seed: int, episode: int):
 
 
 def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed: int = 0, sampled: bool = True,
-             arenas: int = 32, time_limit: float = None, on_progress=None) -> TaskResult:
+             arenas: int = 32, time_limit: float = None, on_progress=None, record_first: int = 0) -> TaskResult:
     """Scores `policy` on `task`.
 
     `time_limit` overrides the task's own limit. A result with an override, or with a
     different number of episodes than the official one, is not official.
+
+    With `record_first`, the first that many episodes are recorded frame by frame and
+    returned in the result's `replays`.
     """
     limit = task.time_limit if time_limit is None else time_limit
     arenas = min(arenas, episodes)
@@ -77,6 +98,8 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
     action_rngs = [None] * arenas
     kept = [None] * arenas
     active = [False] * arenas
+    recording = [None] * arenas
+    replays = []
 
     def start(slot):
         nonlocal next_episode
@@ -86,6 +109,11 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
         setup_rng, action_rngs[slot] = _episode_rngs(task, seed, next_episode)
         kept[slot] = task.setup(games[slot], setup_rng)
         active[slot] = True
+        if next_episode < record_first:
+            game = games[slot]
+            recording[slot] = {"episode": next_episode, "frames": [_frame(game.ball_info(), game.car_infos())]}
+        else:
+            recording[slot] = None
         next_episode += 1
 
     for slot in range(arenas):
@@ -110,6 +138,8 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
         for slot, action, (ball, cars) in zip(slots, actions, states):
             game = games[slot]
             game.step([action] + [0] * (len(game.cars) - 1), scripted=task.scripted(game, kept[slot], ball, cars))
+            if recording[slot] is not None:
+                recording[slot]["frames"].append(_frame(game.ball_info(), game.car_infos()))
 
             outcome = task.outcome(game)
             if outcome is None and game.seconds < limit:
@@ -127,6 +157,11 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
                 timeouts += 1
 
             finished += 1
+            if recording[slot] is not None:
+                replay = recording[slot]
+                replay["outcome"] = outcome if outcome else ("success" if task.survive else "timeout")
+                replay["seconds"] = round(game.seconds, 3)
+                replays.append(replay)
             if on_progress:
                 on_progress(finished, episodes)
             start(slot)
@@ -146,4 +181,5 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
         seed=seed,
         sampled=sampled,
         official=time_limit is None and episodes == OFFICIAL_EPISODES and sampled,
+        replays=sorted(replays, key=lambda r: r["episode"]),
     )
