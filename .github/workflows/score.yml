@@ -1,0 +1,105 @@
+# Scores submissions that have no result yet. Runs when a submission is merged into main.
+#
+# Scoring happens in a job that can only read the repository. It receives the private key
+# for the one step that opens the sealed model, then runs the model. Its output goes through
+# a second job, which checks the shape of every result before publishing it, since the first
+# job has run a stranger's model. That second job also rebuilds the website, because a push
+# made with the workflow's own token does not start other workflows.
+name: Score submissions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "submissions/**"
+  workflow_dispatch:
+
+concurrency:
+  group: score
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install --quiet .
+
+      - name: Score new submissions
+        env:
+          BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
+        run: boost-arena process-submissions --submissions submissions --results results --output new_results
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: new-results
+          path: new_results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    needs: score
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install --quiet .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: new-results
+          path: new_results
+        continue-on-error: true
+
+      - name: Check and add the new results
+        run: |
+          if ls new_results/*.json > /dev/null 2>&1; then
+            boost-arena validate-results new_results/*.json
+            cp new_results/*.json results/
+          else
+            echo "No new results"
+          fi
+
+      - name: Commit
+        run: |
+          git config user.name "boost-arena scoring"
+          git config user.email "scoring@users.noreply.github.com"
+          git add results
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Add results"
+            git push
+          fi
+
+      - name: Build the website
+        run: boost-arena build-site --results results --output site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

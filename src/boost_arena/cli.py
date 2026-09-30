@@ -1,13 +1,32 @@
-"""Command line: boost-arena check | tasks | score | make-random-bot"""
+"""Command line for entrants and for the scoring service."""
 
 import argparse
 import json
 import sys
 import time
 
+import os
+
 from . import __version__
 from .policy import InvalidModel, Policy, check_model, uniform_model
 from .tasks import TASKS
+
+PUBLIC_KEY_FILE = "PUBLIC_KEY"
+PRIVATE_KEY_VARIABLE = "BOOST_ARENA_PRIVATE_KEY"
+
+
+def _read_public_key(path):
+    if not os.path.isfile(path):
+        raise SystemExit(f"No public key file at {path}. Pass --public-key, or run this from a clone of the repository")
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+
+def _progress(name):
+    def show(done, total):
+        if sys.stderr.isatty() and (done % 50 == 0 or done == total):
+            print(f"\r{name}: {done}/{total} episodes", end="", file=sys.stderr, flush=True)
+    return show
 
 
 def _cmd_check(args):
@@ -93,6 +112,109 @@ def _cmd_score(args):
     return 0
 
 
+def _cmd_submit(args):
+    from .submissions import SubmissionError, make_submission
+
+    try:
+        manifest = make_submission(
+            args.model, _read_public_key(args.public_key), args.name, args.author, args.output,
+            description=args.description or "", homepage=args.homepage or "",
+            public_model_url=args.public_model_url or "", model_url=args.model_url or "",
+        )
+    except SubmissionError as e:
+        print(f"Not accepted: {e}")
+        return 1
+
+    folder = os.path.join(args.output, manifest.slug)
+    print(f"Wrote {folder}/")
+    print(f"  {manifest.slug}.sealed    the sealed model, {manifest.model_bytes / 1e6:.1f} MB. Put this somewhere public over https")
+    print(f"  submission.json   the manifest. Copy it to submissions/{manifest.slug}/ in a pull request")
+    if not manifest.model_url:
+        print("Then fill in model_url in submission.json with the address of the sealed file.")
+    return 0
+
+
+def _cmd_verify_submission(args):
+    from .submissions import SubmissionError, verify_submission
+
+    public_key = _read_public_key(args.public_key) if os.path.isfile(args.public_key) else None
+    failed = 0
+    for folder in args.folder:
+        try:
+            info = verify_submission(folder, public_key=public_key, allow_local=args.allow_local)
+            print(f"OK   {folder}: {info['name']} by {info['author']}, sealed model {info['sealed_bytes'] / 1e6:.1f} MB")
+        except SubmissionError as e:
+            print(f"FAIL {folder}: {e}")
+            failed += 1
+    return 1 if failed else 0
+
+
+def _cmd_process_submissions(args):
+    from .submissions import score_submission, submissions_to_score
+
+    private_key = os.environ.get(PRIVATE_KEY_VARIABLE, "").strip()
+    if not private_key:
+        raise SystemExit(f"The private key must be in the {PRIVATE_KEY_VARIABLE} environment variable")
+
+    pending = submissions_to_score(args.submissions, args.results)
+    if args.only:
+        pending = [folder for folder in pending if os.path.basename(os.path.normpath(folder)) in args.only]
+    if not pending:
+        print("Nothing new to score")
+        return 0
+
+    os.makedirs(args.output, exist_ok=True)
+    for folder in pending:
+        slug = os.path.basename(os.path.normpath(folder))
+        started = time.time()
+        document = score_submission(folder, private_key, allow_local=args.allow_local, episodes=args.episodes,
+                                    on_progress=_progress(slug))
+        if sys.stderr.isatty():
+            print("\r" + " " * 60 + "\r", end="", file=sys.stderr)
+        with open(os.path.join(args.output, f"{slug}.json"), "w", encoding="utf-8") as f:
+            json.dump(document, f, indent=2)
+            f.write("\n")
+        if "error" in document:
+            print(f"{slug}: not scored, {document['error']}")
+        else:
+            print(f"{slug}: overall {document['overall_score']:.1f} in {time.time() - started:.0f} s")
+    return 0
+
+
+def _cmd_validate_results(args):
+    from .submissions import SubmissionError, validate_result_document
+
+    failed = 0
+    for path in args.file:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                validate_result_document(json.load(f))
+            print(f"OK   {path}")
+        except (SubmissionError, json.JSONDecodeError, OSError) as e:
+            print(f"FAIL {path}: {e}")
+            failed += 1
+    return 1 if failed else 0
+
+
+def _cmd_build_site(args):
+    from .site import build_site
+
+    path = build_site(args.results, args.output)
+    print(f"Wrote {path}")
+    return 0
+
+
+def _cmd_keygen(args):
+    from .sealed import generate_key_pair
+
+    private, public = generate_key_pair()
+    print("Public key (commit it as PUBLIC_KEY):")
+    print(public)
+    print(f"\nPrivate key (store it as the {PRIVATE_KEY_VARIABLE} secret and keep a copy somewhere safe, never in the repository):")
+    print(private)
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="boost-arena", description="Score a bot on the Boost Arena benchmark")
     parser.add_argument("--version", action="version", version=__version__)
@@ -119,6 +241,45 @@ def main(argv=None):
     score.add_argument("--time-limit", type=float, default=None, help="Change the time limit of every task")
     score.add_argument("--output", help="Also save the results to this JSON file")
     score.set_defaults(run=_cmd_score)
+
+    submit = commands.add_parser("submit", help="Seal a model and write the manifest for a submission")
+    submit.add_argument("model", help="The ONNX file")
+    submit.add_argument("--name", required=True, help="The bot's name")
+    submit.add_argument("--author", required=True, help="Your name or handle")
+    submit.add_argument("--description", help="One line about the bot, optional")
+    submit.add_argument("--homepage", help="An https:// link about the bot, optional")
+    submit.add_argument("--public-model-url", help="Where you publish the model yourself, if you do, optional")
+    submit.add_argument("--model-url", help="Where the sealed file will be hosted, if you already know")
+    submit.add_argument("--public-key", default=PUBLIC_KEY_FILE, help=f"The project's public key file (default: {PUBLIC_KEY_FILE})")
+    submit.add_argument("--output", default="my_submission", help="Folder to write into (default: my_submission)")
+    submit.set_defaults(run=_cmd_submit)
+
+    verify = commands.add_parser("verify-submission", help="Check submission folders, without the private key")
+    verify.add_argument("folder", nargs="+")
+    verify.add_argument("--public-key", default=PUBLIC_KEY_FILE)
+    verify.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
+    verify.set_defaults(run=_cmd_verify_submission)
+
+    process = commands.add_parser("process-submissions", help="Score the submissions that have no result yet (needs the private key)")
+    process.add_argument("--submissions", default="submissions")
+    process.add_argument("--results", default="results")
+    process.add_argument("--output", default="new_results", help="Where to write the new result files")
+    process.add_argument("--only", nargs="*", help="Only these slugs")
+    process.add_argument("--episodes", type=int, default=None, help=argparse.SUPPRESS)
+    process.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
+    process.set_defaults(run=_cmd_process_submissions)
+
+    validate = commands.add_parser("validate-results", help="Check result files before they are published")
+    validate.add_argument("file", nargs="+")
+    validate.set_defaults(run=_cmd_validate_results)
+
+    site = commands.add_parser("build-site", help="Build the leaderboard website")
+    site.add_argument("--results", default="results")
+    site.add_argument("--output", default="site")
+    site.set_defaults(run=_cmd_build_site)
+
+    keygen = commands.add_parser("keygen", help="Make a new key pair for the scoring service")
+    keygen.set_defaults(run=_cmd_keygen)
 
     args = parser.parse_args(argv)
     return args.run(args)

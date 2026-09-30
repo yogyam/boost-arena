@@ -4,14 +4,17 @@ An open benchmark for car-football bots. Train a bot however you like, submit th
 
 Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-source simulator of Rocket League's physics. The game itself is never run.
 
-> **Status: early development.** The scoring tool and all six tasks work. Submissions, the leaderboard and replays are not built yet.
+> **Status: early development.** Scoring, submissions and the leaderboard work. Replays and the training starter kit are not built yet. Submissions are open for testing; the rules are still a draft.
 
 ## How it works
 
 1. **Everyone uses the same interface.** A bot sees 53 numbers describing the ball and cars, and picks one of 90 actions, 15 times a second. See [docs/INTERFACE.md](docs/INTERFACE.md).
 2. **You train your own way.** Any framework, any method, any hardware.
-3. **You submit one model file**, in ONNX format. No code is submitted or run.
+3. **You submit one model file**, in ONNX format, sealed so that only the scoring service can open it. No code is submitted or run, and the project never publishes your model.
 4. **Every bot faces the same situations** and gets a success rate and a time to score for each task.
+5. **The leaderboard** is at https://yogyam.github.io/boost-arena/ and is rebuilt after every scoring run.
+
+To enter, see [docs/SUBMITTING.md](docs/SUBMITTING.md).
 
 ## Try it
 
