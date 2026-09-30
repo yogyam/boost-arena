@@ -39,7 +39,12 @@ def init():
     """Loads the arena into the simulator. Safe to call more than once."""
     global _initialized
     if not _initialized:
-        rs.init(_collision_mesh_folder())
+        try:
+            rs.init(_collision_mesh_folder())
+        except RuntimeError as e:
+            if "inited" not in str(e).lower():
+                raise   # Something else, like a missing folder
+            # Another part of the program, such as an RLGym engine, loaded the arena already
         _initialized = True
 
 

@@ -4,7 +4,7 @@ An open benchmark for car-football bots. Train a bot however you like, submit th
 
 Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-source simulator of Rocket League's physics. The game itself is never run.
 
-> **Status: early development.** Scoring, submissions, the leaderboard and replays work. The training starter kit is not built yet. Submissions are open for testing; the rules are still a draft.
+> **Status: early development.** Scoring, submissions, the leaderboard, replays and a training starter kit all work. Submissions are open for testing; the rules are still a draft.
 
 ## How it works
 
@@ -61,6 +61,10 @@ Scores from your own machine are for your own use. Official leaderboard scores w
 | Penalty shoot-out | Score from a still ball | The reference keeper | 10 s |
 
 Each task is played 1,000 times. The overall score is the average success rate, out of 100. See [docs/TASKS.md](docs/TASKS.md) for the details, including how the reference keeper behaves.
+
+## Training a bot
+
+Don't have a bot yet? The starter kit trains one on your own computer with reinforcement learning and exports it as a submission: see [docs/STARTER_KIT.md](docs/STARTER_KIT.md).
 
 ## Making a model file
 

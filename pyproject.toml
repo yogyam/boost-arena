@@ -22,6 +22,8 @@ dependencies = [
 [project.optional-dependencies]
 # Only needed to convert checkpoints from other training frameworks
 convert = ["torch"]
+# The starter kit: training on the open RLGym tools
+train = ["torch", "rlgym-learn", "rlgym-learn-algos"]
 dev = ["pytest"]
 
 [project.scripts]
