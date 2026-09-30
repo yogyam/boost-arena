@@ -15,5 +15,7 @@ dist/
 # Arena collision files come from a package, never from this repository
 *.cmf
 
-# Local results
-results/
+# Local scoring output and submission drafts
+my_submission/
+new_results/
+site/
