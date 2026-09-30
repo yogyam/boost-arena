@@ -1,0 +1,15 @@
+{
+  "name": "Random actions",
+  "slug": "random-actions",
+  "author": "Boost Arena",
+  "model_url": "https://github.com/yogyam/boost-arena/releases/download/baselines/random-actions.sealed",
+  "sealed_sha256": "0cc45a386f74368af1bb2c1c6fefb60e003b23de9ed483a4d7dff256960310ca",
+  "model_sha256": "3ada9e62dd943831236e0ba0fd9e39addb2abe7e6da5705a17b3c993fe3c4bda",
+  "model_bytes": 19700,
+  "sealed_with": "A5qpREy29+fAkNAIt4tIsdGfjQnI9DNIoYHxPH6AbBA=",
+  "interface_version": 1,
+  "submitted": "2026-09-29",
+  "description": "Baseline: picks among its allowed actions at random.",
+  "homepage": "",
+  "public_model_url": ""
+}
