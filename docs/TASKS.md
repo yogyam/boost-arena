@@ -30,6 +30,7 @@ Every result comes with a 95% confidence interval. With 1,000 episodes it is abo
 - **Every bot faces the same 1,000 situations per task.** A situation is generated from the seed, the task and the episode number.
 - **The bot's random choices are seeded too**, so scoring the same model twice on the same computer gives the same result.
 - **Episodes don't affect each other.** Each one starts in a fresh copy of an untouched arena.
+- **A score stands once given.** Different computers give slightly different results, because tiny differences in floating-point arithmetic grow over a 20-second episode. The scoring service runs on whatever machine GitHub provides, so scoring a model a second time there can move a task by a handful of episodes in a thousand and the overall score by a few tenths. A bot is scored once, when it is submitted or updated, and that score is its official one. The confidence interval says how precise any score is.
 - **No free goals.** In the scoring tasks, a situation in which the ball would go in without being touched is thrown away and drawn again.
 - **No impossible saves avoided.** In Save, every shot goes in if nobody touches it.
 

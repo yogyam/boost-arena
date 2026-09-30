@@ -151,7 +151,7 @@ def render(documents: list) -> str:
 <p class="lead">An open benchmark for car-football bots. Every bot faces the same six tasks, 1,000 times each, in the RocketSim simulator.
 <a href="https://github.com/yogyam/boost-arena">How to enter</a> · <a href="https://github.com/yogyam/boost-arena/blob/main/docs/TASKS.md">The tasks</a></p>
 {table}
-<p class="small">Success rates over 1,000 episodes per task. Overall is the average of the six, out of 100. Hover a score for its confidence interval. Click a column heading to sort. Replays show the first five episodes of each task, which are the same situations for every bot.</p>
+<p class="small">Success rates over 1,000 episodes per task. Overall is the average of the six, out of 100. Hover a score for its confidence interval: differences smaller than it are not meaningful. Click a column heading to sort. Replays show the first five episodes of each task, which are the same situations for every bot.</p>
 {failed_html}
 <footer><p>{DISCLAIMER}</p><p>Built {built}.</p></footer>
 </main>
