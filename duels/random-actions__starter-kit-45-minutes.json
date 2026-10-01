@@ -1,12 +1,13 @@
 {
   "a": "random-actions",
   "b": "starter-kit-45-minutes",
-  "a_manifest_sha256": "8b359229696ab4a5871a6323132a586f84cdc485fba29d366831bc84ba9fc2a3",
-  "b_manifest_sha256": "004873285765b1d37d2dc0b3cabaa139b31cbef98762c0919b78b4882efe273e",
-  "played_at": "2026-10-01T00:21:34Z",
+  "a_manifest_sha256": "1cd8bdffb53c735fb6e3c6f5ec9e2f4aed6a7e573feb8a430b246d85501da136",
+  "b_manifest_sha256": "300aef9b8ff19272c5e8ad6fbe6c38b2222bcebcb13740b16de666fa67d26312",
+  "played_at": "2026-10-01T20:45:15Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
+  "season": 1,
   "duel_set_version": 1,
   "official": true,
   "kinds": {

@@ -1,12 +1,13 @@
 {
   "a": "pisty-reproduction-phase-1",
   "b": "pisty-reproduction-phase-3",
-  "a_manifest_sha256": "18405e69ce5af831a4200ee6cc768fb1eab0e91a74669ac00e16c2672e0cc0df",
-  "b_manifest_sha256": "d2ab1436f0b12a59102849c20097f09556198713241195abdcf9ca20a315f26b",
-  "played_at": "2026-10-01T00:09:08Z",
+  "a_manifest_sha256": "71dae4f0acf94662eefa19c42a02679e0338d41241ca0091b82006390ab7df22",
+  "b_manifest_sha256": "ecd9037083a0c304a1f16101d048636ddd1bee092677be0c053ad62626c21ed8",
+  "played_at": "2026-10-01T20:32:24Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
+  "season": 1,
   "duel_set_version": 1,
   "official": true,
   "kinds": {

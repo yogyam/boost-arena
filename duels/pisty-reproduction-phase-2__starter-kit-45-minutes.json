@@ -1,12 +1,13 @@
 {
   "a": "pisty-reproduction-phase-2",
   "b": "starter-kit-45-minutes",
-  "a_manifest_sha256": "484976053001ee5d8514f3ae47eb3c554b2b6bab6553cdef94bbd3db5e2cb27e",
-  "b_manifest_sha256": "004873285765b1d37d2dc0b3cabaa139b31cbef98762c0919b78b4882efe273e",
-  "played_at": "2026-10-01T00:17:18Z",
+  "a_manifest_sha256": "89ab247bd435d9cd742b11c95407ed0ab11d28367e5343c327075300e37d010c",
+  "b_manifest_sha256": "300aef9b8ff19272c5e8ad6fbe6c38b2222bcebcb13740b16de666fa67d26312",
+  "played_at": "2026-10-01T20:40:52Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
+  "season": 1,
   "duel_set_version": 1,
   "official": true,
   "kinds": {
