@@ -4,7 +4,7 @@ An open benchmark for car-football bots. Train a bot however you like, submit th
 
 Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-source simulator of Rocket League's physics. The game itself is never run.
 
-> **Status: early development.** Scoring, submissions, the leaderboard, replays and a training starter kit all work. Submissions are open for testing; the rules are still a draft.
+> **Status: open for entries.** Scoring, submissions, the leaderboard, replays, duels and a training starter kit all work.
 
 ## How it works
 
@@ -83,7 +83,7 @@ From any other framework, export your policy network to ONNX with an input of sh
 
 ## Rules
 
-See [RULES.md](RULES.md). In short: the project is free and non-commercial, bots are for the simulator and for research, and nothing here may be used to play online against people.
+See [RULES.md](RULES.md). In short: the project is free and non-commercial, bots are for the simulator and for research, nothing here may be used to play online against people, and the project never publishes model files.
 
 ## Tests
 
