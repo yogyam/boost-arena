@@ -22,7 +22,6 @@ import numpy as np
 from matplotlib.patches import Circle, Rectangle
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from boost_arena import keeper  # noqa: E402
 from boost_arena.runner import _episode_rngs  # noqa: E402
 from boost_arena.sim import Game, ball_path  # noqa: E402
 from boost_arena.tasks import FIELD_HALF_LENGTH, FIELD_HALF_WIDTH, GOAL_HALF_WIDTH, TASKS  # noqa: E402

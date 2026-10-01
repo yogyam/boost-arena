@@ -5,7 +5,6 @@ import onnx
 import pytest
 from onnx import TensorProto, helper, numpy_helper
 
-from boost_arena import interface
 from boost_arena.policy import InvalidModel, Policy, check_model
 
 
@@ -124,3 +123,58 @@ def test_refuses_absurdly_large_outputs():
     policy = Policy(make_model(initializers=initializers))
     with pytest.raises(InvalidModel, match="finite"):
         policy.act(np.ones((2, 53), dtype=np.float32), np.ones((2, 90), dtype=bool))
+
+
+def test_refuses_models_whose_values_would_be_huge():
+    """A few parameters can still describe a network that needs gigabytes for one decision."""
+    nodes = [helper.make_node("Gemm", ["obs", "weight", "bias"], ["x0"], transB=1)]
+    previous = "x0"
+    for i in range(24):   # Doubling 24 times: 90 x 2^24 values per car
+        nodes.append(helper.make_node("Concat", [previous, previous], [f"x{i + 1}"], axis=1))
+        previous = f"x{i + 1}"
+    nodes.append(helper.make_node("Slice", [previous, "start", "end", "axes"], ["logits"]))
+    rng = np.random.default_rng(0)
+    initializers = [
+        numpy_helper.from_array(rng.normal(size=(90, 53)).astype(np.float32), "weight"),
+        numpy_helper.from_array(np.zeros(90, dtype=np.float32), "bias"),
+        numpy_helper.from_array(np.array([0], dtype=np.int64), "start"),
+        numpy_helper.from_array(np.array([90], dtype=np.int64), "end"),
+        numpy_helper.from_array(np.array([1], dtype=np.int64), "axes"),
+    ]
+    with pytest.raises(InvalidModel, match="values per car"):
+        check_model(make_model(nodes=nodes, initializers=initializers))
+
+
+def test_refuses_sparse_tensors_and_dropout():
+    nodes = [
+        helper.make_node("Gemm", ["obs", "weight", "bias"], ["hidden"], transB=1),
+        helper.make_node("Dropout", ["hidden"], ["logits"]),
+    ]
+    with pytest.raises(InvalidModel, match="Dropout"):
+        check_model(make_model(nodes=nodes))
+
+    model = onnx.load_model_from_string(make_model())
+    sparse = model.graph.sparse_initializer.add()
+    sparse.dims.extend([100_000, 100_000])
+    with pytest.raises(InvalidModel, match="sparse"):
+        check_model(model.SerializeToString())
+
+
+def test_constants_inside_operations_are_checked_too():
+    bad = helper.make_tensor("bad", TensorProto.FLOAT, [90], [float("nan")] * 90)
+    nodes = [
+        helper.make_node("Constant", [], ["offset"], value=bad),
+        helper.make_node("Gemm", ["obs", "weight", "bias"], ["hidden"], transB=1),
+        helper.make_node("Add", ["hidden", "offset"], ["logits"]),
+    ]
+    with pytest.raises(InvalidModel, match="finite"):
+        check_model(make_model(nodes=nodes))
+
+
+def test_a_slow_model_is_refused(monkeypatch):
+    import boost_arena.policy as policy_module
+
+    monkeypatch.setattr(policy_module, "MAX_SECONDS_PER_BATCH", 0.0)
+    with pytest.raises(InvalidModel, match="takes"):
+        Policy(make_model())
+    assert Policy(make_model(), timed=False) is not None

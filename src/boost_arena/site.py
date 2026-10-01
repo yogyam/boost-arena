@@ -1,4 +1,4 @@
-"""Builds the leaderboard website from the result files: plain HTML, no external resources."""
+"""Builds the leaderboard website from the result files: plain HTML, and nothing loaded from other hosts."""
 
 import datetime
 import html
@@ -71,6 +71,7 @@ td.rank.top { color: var(--ink); font-weight: 700; }
 .bar.overall i { width: 72px; height: 10px; }
 .bar.overall span { font-weight: 700; }
 .error { color: #b3261e; }
+.flag { font-size: 11px; font-weight: 600; color: #8a4b00; background: #fff1dc; border-radius: 4px; padding: 1px 6px; text-decoration: none; vertical-align: middle; }
 svg.chart { display: block; width: 100%; height: auto; }
 .chart text { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
 .chart text.value { fill: var(--ink); font-weight: 600; }
@@ -204,6 +205,8 @@ def render_board(scored: list, failed: list) -> tuple:
         name = f'<span class="bot">{_link(manifest.get("homepage", ""), manifest["name"])}</span>'
         if manifest.get("public_model_url"):
             name += f' <span class="small">({_link(manifest["public_model_url"], "model")})</span>'
+        if document.get("_flag"):
+            name += f' <a class="flag" href="{_e(document["_flag"])}" title="This entry is under question; click for the discussion">Flagged</a>'
         if manifest.get("description"):
             name += f'<div class="desc">{_e(manifest["description"])}</div>'
         overall = document["overall_score"]
@@ -334,7 +337,7 @@ def render(documents: list, duels: list = None) -> str:
     enter = f'''<h2 id="enter">Enter your bot</h2>
 <div class="steps">
   <div class="step"><b>1 · Train</b>Any framework, any method. No bot yet? The <a href="{REPOSITORY}/blob/main/docs/STARTER_KIT.md">starter kit</a> trains one on a laptop in a couple of hours.</div>
-  <div class="step"><b>2 · Seal</b>Export the policy as ONNX, then <code>boost-arena submit my_bot.onnx</code>. The model is sealed so only the scoring service can open it; it is never published.</div>
+  <div class="step"><b>2 · Seal</b>Export the policy as ONNX, then <code>boost-arena submit my_bot.onnx --github you</code>. The model is sealed so only the scoring service can open it; it is never published.</div>
   <div class="step"><b>3 · Submit</b>Host the sealed file and open a pull request with the manifest. Once merged, scoring, duels and replays follow on their own.</div>
 </div>
 <p class="small">Full instructions: <a href="{REPOSITORY}/blob/main/docs/SUBMITTING.md">SUBMITTING.md</a>. The interface every bot uses: <a href="{REPOSITORY}/blob/main/docs/INTERFACE.md">INTERFACE.md</a>. The rules: <a href="{REPOSITORY}/blob/main/RULES.md">RULES.md</a>.</p>'''
@@ -345,6 +348,7 @@ def render(documents: list, duels: list = None) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Boost Arena leaderboard</title>
 <meta name="description" content="An open, task-based benchmark for car-football bots, scored in the RocketSim simulator.">
 <style>{STYLE}</style>
@@ -381,9 +385,23 @@ def render(documents: list, duels: list = None) -> str:
 """
 
 
-def build_site(results_folder: str, output_folder: str, replays_folder: str = None, duels_folder: str = None) -> str:
+def load_flags(path: str) -> dict:
+    """`flags.json` maps a slug to the https address of the discussion about that entry (see RULES.md)."""
+    if not path or not os.path.isfile(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        flags = json.load(f)
+    return {slug: url for slug, url in flags.items() if isinstance(url, str) and url.startswith("https://")}
+
+
+def build_site(results_folder: str, output_folder: str, replays_folder: str = None, duels_folder: str = None,
+               flags_path: str = None) -> str:
     documents = load_results(results_folder)
     duels = load_duels(duels_folder)
+    flags = load_flags(flags_path)
+    for document in documents:
+        if document["_slug"] in flags:
+            document["_flag"] = flags[document["_slug"]]
     os.makedirs(os.path.join(output_folder, "replays", "duels"), exist_ok=True)
 
     for duel in duels:
@@ -407,6 +425,11 @@ def build_site(results_folder: str, output_folder: str, replays_folder: str = No
         page = f.read().replace("__TASK_NAMES__", json.dumps({key: task.name for key, task in TASKS.items()}))
     with open(os.path.join(output_folder, "replay.html"), "w", encoding="utf-8") as f:
         f.write(page)
+
+    # The viewer's one library is served by the site itself, not fetched from another host
+    os.makedirs(os.path.join(output_folder, "vendor"), exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), "vendor", "three.module.js"),
+                    os.path.join(output_folder, "vendor", "three.module.js"))
 
     # The raw results are published too, for anyone who wants to make their own charts
     with open(os.path.join(output_folder, "results.json"), "w", encoding="utf-8") as f:

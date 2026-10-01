@@ -19,6 +19,8 @@ Every point won and lost, across all duels and all opponents, goes into a Bradle
 
 A small prior keeps a bot that has never lost a point from getting an infinite rating. A bot's rating changes when new bots arrive, because its opponents change; that is the nature of head-to-head ratings.
 
+Draws are not points for anyone and do not enter the fit. Kickoff duels between weak bots are mostly draws, so the penalty duel decides most of the rating between them. In the penalty duel the keeper takes the point whenever the attacker fails to score, so a bot that cannot attack loses points even to a keeper that does nothing.
+
 ## When duels are played
 
 - A bot duels only after it has an official task score.

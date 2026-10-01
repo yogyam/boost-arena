@@ -8,13 +8,15 @@ import datetime
 import gzip
 import json
 import os
+import re
 
 from . import __version__
 from .duels import DUEL_KINDS, DUEL_SET_VERSION, OFFICIAL_EPISODES, run_pair
-from .policy import InvalidModel, Policy, check_model
-from .sealed import SealedFileError, open_sealed
+from .policy import InvalidModel, Policy
+from .runner import FRAMES_PER_SECOND, OFFICIAL_SEED, SEASON
 from .submissions import (
-    REPLAYS_SUFFIX, MAX_REPLAY_FRAMES, RECORDED_EPISODES, SLUG_PATTERN, SubmissionError, fetch, load_manifest, manifest_digest, sha256,
+    MAX_REPLAY_FRAMES, MODEL_SUFFIX, RECORDED_EPISODES, REPLAYS_SUFFIX, SLUG_PATTERN, SubmissionError, manifest_digest,
+    open_submission, submission_folders,
 )
 
 DUEL_REPLAYS = 2   # Per kind and direction
@@ -28,12 +30,10 @@ def pair_name(a: str, b: str) -> str:
 def scored_bots(submissions_folder: str, results_folder: str) -> list:
     """Slugs of the bots that have a successful, current result, in alphabetical order."""
     bots = []
-    if not os.path.isdir(submissions_folder):
-        return bots
-    for slug in sorted(os.listdir(submissions_folder)):
-        folder = os.path.join(submissions_folder, slug)
+    for folder in submission_folders(submissions_folder):
+        slug = os.path.basename(folder)
         result_path = os.path.join(results_folder, f"{slug}.json")
-        if not os.path.isdir(folder) or slug.startswith(".") or not os.path.isfile(result_path):
+        if not os.path.isfile(result_path):
             continue
         with open(result_path, "r", encoding="utf-8") as f:
             try:
@@ -60,35 +60,53 @@ def pairs_to_play(submissions_folder: str, results_folder: str, duels_folder: st
                     except (json.JSONDecodeError, OSError):
                         existing = {}
                 if existing.get("a_manifest_sha256") == digests[a] and existing.get("b_manifest_sha256") == digests[b] \
-                        and existing.get("duel_set_version") == DUEL_SET_VERSION:
+                        and existing.get("duel_set_version") == DUEL_SET_VERSION and existing.get("season") == SEASON:
                     continue
             pending.append((a, b))
     return pending
 
 
-def open_bot(submissions_folder: str, slug: str, private_key: str, allow_local: bool = False) -> Policy:
-    """Downloads and opens a bot's sealed model, checking it the same way scoring does."""
-    manifest = load_manifest(os.path.join(submissions_folder, slug))
-    sealed = fetch(manifest.model_url, allow_local=allow_local)
-    if sha256(sealed) != manifest.sealed_sha256:
-        raise SubmissionError(f"{slug}: the sealed file has changed since it was submitted")
+def open_bots_for_duels(submissions_folder: str, results_folder: str, duels_folder: str, private_key: str,
+                        models_folder: str, max_pairs: int, allow_local: bool = False) -> list:
+    """Opens the models of every bot in the pairs about to be played into `models_folder/<slug>.onnx`,
+    unless already there. A bot that cannot be opened is reported and its pairs are skipped."""
+    os.makedirs(models_folder, exist_ok=True)
+    skipped = []
+    for a, b in pairs_to_play(submissions_folder, results_folder, duels_folder)[:max_pairs]:
+        for slug in (a, b):
+            path = os.path.join(models_folder, slug + MODEL_SUFFIX)
+            if os.path.isfile(path) or slug in skipped:
+                continue
+            try:
+                _, model, _ = open_submission(os.path.join(submissions_folder, slug), private_key, allow_local=allow_local)
+            except SubmissionError as e:
+                print(f"{slug}: cannot duel, {e}")
+                skipped.append(slug)
+                continue
+            with open(path, "wb") as f:
+                f.write(model)
+    return skipped
+
+
+def load_bot(models_folder: str, slug: str) -> Policy:
+    """A bot's opened model, as left by `open_bots_for_duels`."""
+    path = os.path.join(models_folder, slug + MODEL_SUFFIX)
+    if not os.path.isfile(path):
+        raise SubmissionError(f"{slug}: the model was not opened")
     try:
-        model = open_sealed(sealed, private_key)
-    except SealedFileError as e:
-        raise SubmissionError(f"{slug}: {e}") from None
-    if sha256(model) != manifest.model_sha256:
-        raise SubmissionError(f"{slug}: the opened model does not match the manifest")
-    try:
-        check_model(model)
-        return Policy(model)
+        return Policy.from_file(path)
     except InvalidModel as e:
         raise SubmissionError(f"{slug}: the model is not acceptable: {e}") from None
 
 
 def play_pair(submissions_folder: str, a: str, b: str, policies: dict, episodes: int = None) -> tuple:
-    """Plays one pair. Returns the duel document and the replays document."""
+    """Plays one pair. Returns the duel document and the replays document, or raises SubmissionError
+    if one of the models fails: a duel is never published half-played."""
     a, b = sorted((a, b))
-    result = run_pair(policies[a], policies[b], episodes=episodes or OFFICIAL_EPISODES, record_first=DUEL_REPLAYS)
+    try:
+        result = run_pair(policies[a], policies[b], episodes=episodes or OFFICIAL_EPISODES, record_first=DUEL_REPLAYS)
+    except Exception as e:   # A stranger's model; whatever it does, the service goes on
+        raise SubmissionError(f"{a} v {b}: a model failed during the duel ({type(e).__name__})") from None
     replays = result.pop("replays")
     document = {
         "a": a, "b": b,
@@ -98,7 +116,8 @@ def play_pair(submissions_folder: str, a: str, b: str, policies: dict, episodes:
         "benchmark_version": __version__,
         **result,
     }
-    replay_document = {"pair": pair_name(a, b), "a": a, "b": b, "fps": 15, "duel_set_version": DUEL_SET_VERSION, "kinds": replays}
+    replay_document = {"pair": pair_name(a, b), "a": a, "b": b, "fps": FRAMES_PER_SECOND, "duel_set_version": DUEL_SET_VERSION,
+                       "season": SEASON, "kinds": replays}
     return document, replay_document
 
 
@@ -117,26 +136,40 @@ def _check_slug(value):
         raise SubmissionError("A duel names a bot with a bad slug")
 
 
-def validate_duel_document(document: dict) -> None:
-    """Checks a duel result from the scoring job before it is published."""
+def _whole(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def validate_duel_document(document: dict, official_only: bool = False) -> None:
+    """Checks a duel result from the scoring job before it is published: the right shape, and
+    numbers that agree with each other."""
     if not isinstance(document, dict):
         raise SubmissionError("A duel result must be a JSON object")
     allowed = {"a", "b", "a_manifest_sha256", "b_manifest_sha256", "played_at", "benchmark_version", "episodes_per_direction",
-               "seed", "duel_set_version", "official", "kinds", "a_points", "b_points"}
+               "seed", "season", "duel_set_version", "official", "kinds", "a_points", "b_points"}
     if set(document) != allowed:
         raise SubmissionError(f"A duel result has the wrong fields: {sorted(set(document) ^ allowed)}")
     _check_slug(document["a"])
     _check_slug(document["b"])
     if document["a"] >= document["b"]:
         raise SubmissionError("A duel must name the bots in alphabetical order")
-    for field in ("a_manifest_sha256", "b_manifest_sha256", "played_at", "benchmark_version"):
+    for field in ("a_manifest_sha256", "b_manifest_sha256"):
+        if not isinstance(document[field], str) or not re.fullmatch(r"[0-9a-f]{64}", document[field]):
+            raise SubmissionError(f"'{field}' must be a SHA-256")
+    for field in ("played_at", "benchmark_version"):
         if not isinstance(document[field], str) or len(document[field]) > 64:
             raise SubmissionError(f"'{field}' is missing or not short text")
-    for field in ("episodes_per_direction", "seed", "duel_set_version", "a_points", "b_points"):
-        if not isinstance(document[field], int) or document[field] < 0:
+    for field in ("episodes_per_direction", "seed", "season", "duel_set_version", "a_points", "b_points"):
+        if not _whole(document[field]):
             raise SubmissionError(f"'{field}' must be a whole number")
-    if not isinstance(document["official"], bool):
+    if type(document["official"]) is not bool:
         raise SubmissionError("'official' must be true or false")
+    if document["episodes_per_direction"] == 0 or document["duel_set_version"] != DUEL_SET_VERSION or document["season"] != SEASON:
+        raise SubmissionError("The duel is from another duel set or season")
+    if document["official"] != (document["episodes_per_direction"] == OFFICIAL_EPISODES and document["seed"] == OFFICIAL_SEED):
+        raise SubmissionError("'official' does not match the duel's settings")
+    if official_only and not document["official"]:
+        raise SubmissionError("Only official duels are published")
     if not isinstance(document["kinds"], dict) or set(document["kinds"]) != set(DUEL_KINDS):
         raise SubmissionError("A duel result must hold every duel kind")
     total_a = total_b = 0
@@ -144,24 +177,54 @@ def validate_duel_document(document: dict) -> None:
         if not isinstance(kind, dict) or set(kind) != {"a_points", "b_points", "draws", "a_as_blue", "b_as_blue"}:
             raise SubmissionError("A duel kind has the wrong fields")
         for field in ("a_points", "b_points", "draws"):
-            if not isinstance(kind[field], int) or kind[field] < 0:
+            if not _whole(kind[field]):
                 raise SubmissionError(f"'{field}' must be a whole number")
+        halves = {"a": 0, "b": 0, "draws": 0}
         for half in ("a_as_blue", "b_as_blue"):
             if not isinstance(kind[half], dict) or set(kind[half]) != {"a", "b", "draws"}:
                 raise SubmissionError("A duel half has the wrong fields")
-            for value in kind[half].values():
-                if not isinstance(value, int) or value < 0:
+            for key, value in kind[half].items():
+                if not _whole(value):
                     raise SubmissionError("Duel points must be whole numbers")
-        if kind["a_points"] + kind["b_points"] + kind["draws"] != 2 * document["episodes_per_direction"]:
-            raise SubmissionError("Duel points do not add up to the episodes played")
+                halves[key] += value
+            if sum(kind[half].values()) != document["episodes_per_direction"]:
+                raise SubmissionError("A duel half does not add up to the episodes played")
+        if (halves["a"], halves["b"], halves["draws"]) != (kind["a_points"], kind["b_points"], kind["draws"]):
+            raise SubmissionError("Duel halves do not add up to the kind's totals")
         total_a += kind["a_points"]
         total_b += kind["b_points"]
     if (total_a, total_b) != (document["a_points"], document["b_points"]):
         raise SubmissionError("Duel totals do not match the kinds")
 
 
+def validate_published_duel(path: str, submissions_folder: str, results_folder: str, official_only: bool = True) -> dict:
+    """A duel file about to be published must be named after its pair and describe both bots as
+    they are scored in the repository."""
+    with open(path, "r", encoding="utf-8") as f:
+        document = json.load(f)
+    validate_duel_document(document, official_only=official_only)
+    if os.path.basename(path) != pair_name(document["a"], document["b"]) + ".json":
+        raise SubmissionError("A duel file must be named after its pair")
+    scored = scored_bots(submissions_folder, results_folder)
+    for side in ("a", "b"):
+        slug = document[side]
+        if slug not in scored:
+            raise SubmissionError(f"'{slug}' has no current score, so it cannot have duelled")
+        if document[f"{side}_manifest_sha256"] != manifest_digest(os.path.join(submissions_folder, slug)):
+            raise SubmissionError(f"The duel is not for the manifest of '{slug}' in the repository")
+    return document
+
+
+def validate_published_duel_replays(path: str) -> dict:
+    document = read_duel_replays(path)
+    validate_duel_replays_document(document)
+    if os.path.basename(path) != document["pair"] + REPLAYS_SUFFIX:
+        raise SubmissionError("A duel replays file must be named after its pair")
+    return document
+
+
 def validate_duel_replays_document(document: dict) -> None:
-    if not isinstance(document, dict) or set(document) != {"pair", "a", "b", "fps", "duel_set_version", "kinds"}:
+    if not isinstance(document, dict) or set(document) != {"pair", "a", "b", "fps", "duel_set_version", "season", "kinds"}:
         raise SubmissionError("A duel replays file has the wrong fields")
     _check_slug(document["a"])
     _check_slug(document["b"])

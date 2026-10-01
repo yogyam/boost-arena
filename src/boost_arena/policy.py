@@ -10,6 +10,8 @@ list of mathematical operations, not program code, and only plain feed-forward o
 are accepted. Choosing the action from the logits is done here, not inside the model.
 """
 
+import time
+
 import numpy as np
 import onnx
 import onnxruntime as ort
@@ -22,6 +24,14 @@ MAX_NODES = 2_000
 MAX_OPSET = 21
 MAX_LOGIT = 1e6  # Trained networks give logits in the tens. Anything near this is a broken model
 
+# Bounds on the work one decision may take, so a model cannot stall or exhaust the scoring service.
+# Shapes are checked for a batch of this many cars; intermediate values are capped per car.
+CHECK_BATCH = 32
+MAX_ELEMENTS_PER_CAR = 1_000_000       # Any intermediate value, e.g. a 1000x1000 matrix per car
+MAX_TOTAL_ELEMENTS_PER_CAR = 8_000_000  # All intermediate values together
+MAX_SECONDS_PER_BATCH = 0.05            # Average over several timed decisions for CHECK_BATCH cars
+TIMING_ROUNDS = 20
+
 # Everything a feed-forward network needs. Anything else is refused: no loops or branches,
 # no operations that read files, no custom operations.
 ALLOWED_OPERATIONS = frozenset({
@@ -30,7 +40,7 @@ ALLOWED_OPERATIONS = frozenset({
     "HardSwish", "Softplus", "Softsign", "Softmax", "LogSoftmax", "Erf", "Clip", "Min", "Max",
     "LayerNormalization", "BatchNormalization", "ReduceMean", "ReduceSum",
     "Identity", "Constant", "Concat", "Flatten", "Reshape", "Squeeze", "Unsqueeze", "Slice", "Gather",
-    "Transpose", "Cast", "Dropout",
+    "Transpose", "Cast",
 })
 
 # Logits of actions the car may not take are pushed down by this much
@@ -70,6 +80,10 @@ def check_model(data: bytes) -> dict:
     if len(graph.node) > MAX_NODES:
         raise InvalidModel(f"Has {len(graph.node)} operations, the limit is {MAX_NODES}")
 
+    if len(graph.sparse_initializer) > 0 or len(model.training_info) > 0:
+        raise InvalidModel("Contains sparse tensors or training information, which are not accepted")
+
+    tensors = list(graph.initializer)   # Every tensor the file carries: weights, and constants inside operations
     for node in graph.node:
         if node.domain not in ("", "ai.onnx"):
             raise InvalidModel(f"Operation '{node.op_type}' is from '{node.domain}', only standard operations are accepted")
@@ -78,13 +92,15 @@ def check_model(data: bytes) -> dict:
         for attribute in node.attribute:
             if attribute.type in (onnx.AttributeProto.GRAPH, onnx.AttributeProto.GRAPHS):
                 raise InvalidModel(f"Operation '{node.op_type}' contains a nested graph, which is not accepted")
-            if attribute.type in (onnx.AttributeProto.TENSOR, onnx.AttributeProto.TENSORS):
-                for tensor in [attribute.t] + list(attribute.tensors):
-                    if tensor.data_location == onnx.TensorProto.EXTERNAL or len(tensor.external_data) > 0:
-                        raise InvalidModel("Refers to data in another file. The model must be one self-contained file")
+            if attribute.type in (onnx.AttributeProto.SPARSE_TENSOR, onnx.AttributeProto.SPARSE_TENSORS):
+                raise InvalidModel("Contains sparse tensors, which are not accepted")
+            if attribute.type == onnx.AttributeProto.TENSOR:
+                tensors.append(attribute.t)
+            elif attribute.type == onnx.AttributeProto.TENSORS:
+                tensors.extend(attribute.tensors)
 
     parameters = 0
-    for tensor in graph.initializer:
+    for tensor in tensors:
         if tensor.data_location == onnx.TensorProto.EXTERNAL or len(tensor.external_data) > 0:
             raise InvalidModel("Refers to data in another file. The model must be one self-contained file")
         parameters += int(np.prod(tensor.dims)) if len(tensor.dims) else 1
@@ -92,13 +108,13 @@ def check_model(data: bytes) -> dict:
         raise InvalidModel(f"Has {parameters:,} parameters, the limit is {MAX_PARAMETERS:,}")
 
     # How a runtime handles these differs between computers, so they are refused outright
-    for tensor in graph.initializer:
-        if tensor.data_type in (onnx.TensorProto.FLOAT, onnx.TensorProto.DOUBLE, onnx.TensorProto.FLOAT16):
+    for tensor in tensors:
+        if tensor.data_type in (onnx.TensorProto.FLOAT, onnx.TensorProto.DOUBLE, onnx.TensorProto.FLOAT16, onnx.TensorProto.BFLOAT16):
             try:
                 values = onnx.numpy_helper.to_array(tensor)
             except Exception as e:
                 raise InvalidModel(f"The values of '{tensor.name}' could not be read: {e}") from None
-            if not np.isfinite(values).all():
+            if not np.isfinite(values.astype(np.float64)).all():
                 raise InvalidModel(f"'{tensor.name}' contains a value that is not a finite number")
 
     initializer_names = {tensor.name for tensor in graph.initializer}
@@ -115,6 +131,8 @@ def check_model(data: bytes) -> dict:
         if shape[0] is not None:
             raise InvalidModel(f"The first dimension of the {what} must be left open, so several cars can be decided at once")
 
+    _check_intermediate_sizes(model)
+
     return {
         "parameters": parameters,
         "operations": len(graph.node),
@@ -124,10 +142,37 @@ def check_model(data: bytes) -> dict:
     }
 
 
+def _check_intermediate_sizes(model) -> None:
+    """Refuses a model whose intermediate values would be huge: a few parameters can still
+    describe a network that needs gigabytes of memory for one decision."""
+    try:
+        inferred = onnx.shape_inference.infer_shapes(model, check_type=True, strict_mode=True)
+    except Exception as e:
+        raise InvalidModel(f"The shapes of the model's values could not be worked out: {e}") from None
+    total = 0
+    for info in list(inferred.graph.value_info) + list(inferred.graph.output):
+        dims = info.type.tensor_type.shape.dim
+        if not dims:
+            continue
+        elements = 1
+        for i, dim in enumerate(dims):
+            if dim.HasField("dim_value"):
+                elements *= max(dim.dim_value, 1)
+            elif i == 0:
+                elements *= CHECK_BATCH
+            # Any other unknown dimension is counted as 1: the timed decision below catches the rest
+        elements //= CHECK_BATCH
+        if elements > MAX_ELEMENTS_PER_CAR:
+            raise InvalidModel(f"'{info.name}' would hold {elements:,} values per car, the limit is {MAX_ELEMENTS_PER_CAR:,}")
+        total += elements
+    if total > MAX_TOTAL_ELEMENTS_PER_CAR:
+        raise InvalidModel(f"The model's intermediate values would hold {total:,} values per car, the limit is {MAX_TOTAL_ELEMENTS_PER_CAR:,}")
+
+
 class Policy:
     """A checked model, ready to choose actions."""
 
-    def __init__(self, data: bytes, threads: int = 1):
+    def __init__(self, data: bytes, threads: int = 1, timed: bool = True):
         self.info = check_model(data)
 
         options = ort.SessionOptions()
@@ -138,6 +183,24 @@ class Policy:
             self._session = ort.InferenceSession(data, sess_options=options, providers=["CPUExecutionProvider"])
         except Exception as e:
             raise InvalidModel(f"The model could not be loaded: {e}") from None
+        if timed:
+            self._check_speed()
+
+    def _check_speed(self) -> None:
+        """One decision for a batch of cars must be quick, or scoring would take hours."""
+        obs = np.zeros((CHECK_BATCH, interface.OBS_SIZE), dtype=np.float32)
+        try:
+            self.logits(obs)   # Warm up, and catch a model that fails on its first run
+            started = time.perf_counter()
+            for _ in range(TIMING_ROUNDS):
+                self.logits(obs)
+            seconds = (time.perf_counter() - started) / TIMING_ROUNDS
+        except InvalidModel:
+            raise
+        except Exception as e:
+            raise InvalidModel(f"The model failed on a test decision: {type(e).__name__}") from None
+        if seconds > MAX_SECONDS_PER_BATCH:
+            raise InvalidModel(f"A decision for {CHECK_BATCH} cars takes {seconds * 1000:.0f} ms, the limit is {MAX_SECONDS_PER_BATCH * 1000:.0f} ms")
 
     @classmethod
     def from_file(cls, path, **kwargs):

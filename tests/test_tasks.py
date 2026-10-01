@@ -8,7 +8,7 @@ from boost_arena import interface
 from boost_arena.policy import Policy, uniform_model
 from boost_arena.runner import overall_score, run_task
 from boost_arena.sim import Game
-from boost_arena.tasks import CONCEDED, GOAL_LINE, SUCCESS, TASKS
+from boost_arena.tasks import CONCEDED, TASKS
 
 
 def play_untouched(task, seed):

@@ -1,10 +1,13 @@
 # Scores submissions that have no result yet. Runs when a submission is merged into main.
 #
-# Scoring happens in a job that can only read the repository. It receives the private key
-# for the one step that opens the sealed model, then runs the model. Its output goes through
-# a second job, which checks the shape of every result before publishing it, since the first
-# job has run a stranger's model. That second job also rebuilds the website, because a push
-# made with the workflow's own token does not start other workflows.
+# Scoring happens in a job that can only read the repository. The private key is given to
+# one step, which opens the sealed models into a folder outside the checkout and drops the
+# key. The steps that run the strangers' models have no key, and run each model in its own
+# process with a time and memory limit. Their output goes through a second job, which checks
+# every file against the repository before publishing it. That second job also rebuilds the
+# website, because a push made with the workflow's own token does not start other workflows.
+#
+# Actions are pinned to commits, since the first job holds the key and the second can push.
 name: Score submissions
 
 on:
@@ -23,34 +26,43 @@ concurrency:
 jobs:
   score:
     runs-on: ubuntu-latest
+    timeout-minutes: 300
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065   # v5.6.0
         with:
           python-version: "3.12"
 
       - name: Install
         run: pip install --quiet .
 
-      - name: Score new submissions
+      - name: Open the models that need scoring or duelling
         env:
           BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
-        run: boost-arena process-submissions --submissions submissions --results results --replays replays --output new_results
+        run: |
+          boost-arena open-submissions --submissions submissions --results results --replays replays --duels duels \
+            --max-pairs 15 --models "$RUNNER_TEMP/opened_models" --output new_results
+
+      - name: Score new submissions
+        run: boost-arena process-submissions --models "$RUNNER_TEMP/opened_models" --output new_results
 
       # Duels need the results just produced, so the new result files stand in for published ones
       - name: Play new duels
-        env:
-          BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
         run: |
           mkdir -p merged_results new_results
           cp results/*.json merged_results/ 2>/dev/null || true
           cp new_results/*.json merged_results/ 2>/dev/null || true
-          boost-arena process-duels --submissions submissions --results merged_results --duels duels --output new_results --max-pairs 15
+          boost-arena process-duels --submissions submissions --results merged_results --duels duels \
+            --models "$RUNNER_TEMP/opened_models" --output new_results --max-pairs 15
 
-      - uses: actions/upload-artifact@v4
+      - name: Remove the opened models
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/opened_models"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: new-results
           path: new_results
@@ -60,43 +72,51 @@ jobs:
   publish:
     needs: score
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       pages: write
       id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          ref: main
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065   # v5.6.0
         with:
           python-version: "3.12"
 
       - name: Install
         run: pip install --quiet .
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         with:
           name: new-results
           path: new_results
         continue-on-error: true
 
+      # Every file is checked against the repository: a result must be for the manifest on main,
+      # a duel for two bots with current scores. If anything fails, nothing is published.
       - name: Check and add the new results and replays
         run: |
           if ls new_results/*.json > /dev/null 2>&1; then
-            boost-arena validate-results new_results/*.json
+            boost-arena validate-results --submissions submissions --results results new_results/*.json
             cp new_results/*.json results/
           else
             echo "No new results"
           fi
           if ls new_results/*.replays.json.gz > /dev/null 2>&1; then
-            boost-arena validate-results new_results/*.replays.json.gz
+            boost-arena validate-results --submissions submissions --results results new_results/*.replays.json.gz
             cp new_results/*.replays.json.gz replays/
           fi
           if ls new_results/duels/* > /dev/null 2>&1; then
-            boost-arena validate-results new_results/duels/*
+            boost-arena validate-results --submissions submissions --results results new_results/duels/*
             cp new_results/duels/* duels/
           fi
 
@@ -109,17 +129,18 @@ jobs:
             echo "Nothing to commit"
           else
             git commit -m "Add results"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
 
       - name: Build the website
         run: boost-arena build-site --results results --replays replays --duels duels --output site
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b   # v5.0.0
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa   # v3.0.1
         with:
           path: site
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e   # v4.0.5

@@ -1,7 +1,6 @@
 """Checks duels, their rating, and the service's bookkeeping."""
 
 import json
-import os
 
 import pytest
 
@@ -90,3 +89,59 @@ def test_validation_refuses_bad_duels():
         validate_duel_document({"a": "b", "b": "a"})
     with pytest.raises(SubmissionError, match="fields"):
         validate_duel_replays_document({"pair": "a__b", "a": "a", "b": "b", "fps": 15, "duel_set_version": 1, "kinds": {}, "extra": 1})
+
+
+def test_duel_validation_checks_that_the_numbers_agree(random_bot, tmp_path):
+    submissions = tmp_path / "submissions"
+    for slug in ("alpha", "beta"):
+        (submissions / slug).mkdir(parents=True)
+        (submissions / slug / "submission.json").write_text(json.dumps({"slug": slug}))
+    document, _ = play_pair(str(submissions), "alpha", "beta", {"alpha": random_bot, "beta": random_bot}, episodes=3)
+    validate_duel_document(document)
+
+    forged = json.loads(json.dumps(document))
+    forged["kinds"]["penalty"]["a_as_blue"]["a"] += 1
+    with pytest.raises(SubmissionError, match="add up"):
+        validate_duel_document(forged)
+    forged = json.loads(json.dumps(document))
+    forged["a_points"] += 1
+    with pytest.raises(SubmissionError, match="totals"):
+        validate_duel_document(forged)
+    forged = json.loads(json.dumps(document))
+    forged["official"] = True   # Three episodes are not the official number
+    with pytest.raises(SubmissionError, match="official"):
+        validate_duel_document(forged)
+    forged = json.loads(json.dumps(document))
+    forged["season"] += 1
+    with pytest.raises(SubmissionError, match="season"):
+        validate_duel_document(forged)
+    with pytest.raises(SubmissionError, match="Only official"):
+        validate_duel_document(document, official_only=True)
+
+
+def test_a_published_duel_must_be_for_scored_bots(random_bot, tmp_path):
+    import hashlib
+
+    from boost_arena.duel_service import validate_published_duel
+
+    submissions, results, output = tmp_path / "submissions", tmp_path / "results", tmp_path / "new"
+    results.mkdir()
+    output.mkdir()
+    for slug in ("alpha", "beta"):
+        (submissions / slug).mkdir(parents=True)
+        (submissions / slug / "submission.json").write_text(json.dumps({"slug": slug}))
+        digest = hashlib.sha256((submissions / slug / "submission.json").read_bytes()).hexdigest()
+        (results / f"{slug}.json").write_text(json.dumps({"manifest_sha256": digest, "results": []}))
+    document, _ = play_pair(str(submissions), "alpha", "beta", {"alpha": random_bot, "beta": random_bot}, episodes=2)
+
+    path = output / "alpha__beta.json"
+    path.write_text(json.dumps(document))
+    validate_published_duel(str(path), str(submissions), str(results), official_only=False)
+
+    (output / "alpha__gamma.json").write_text(json.dumps(document))
+    with pytest.raises(SubmissionError, match="named after"):
+        validate_published_duel(str(output / "alpha__gamma.json"), str(submissions), str(results), official_only=False)
+
+    (results / "beta.json").write_text(json.dumps({"manifest_sha256": "0" * 64, "error": "x"}))
+    with pytest.raises(SubmissionError, match="no current score"):
+        validate_published_duel(str(path), str(submissions), str(results), official_only=False)

@@ -13,6 +13,12 @@ from .tasks import CONCEDED, SUCCESS, TASK_SET_VERSION, Task
 
 OFFICIAL_EPISODES = 1000
 
+# The situations a bot is scored on come from a seed that changes every season, so a bot
+# cannot be tuned to the exact situations for long. RULES.md says when a season changes.
+SEASON = 1
+OFFICIAL_SEEDS = {1: 0}
+OFFICIAL_SEED = OFFICIAL_SEEDS[SEASON]
+
 
 @dataclass
 class TaskResult:
@@ -29,6 +35,7 @@ class TaskResult:
     seed: int
     sampled: bool
     official: bool
+    season: int = SEASON
     interface_version: int = interface.INTERFACE_VERSION
     task_set_version: int = TASK_SET_VERSION
     simulator_version: str = SIMULATOR_VERSION
@@ -80,12 +87,12 @@ def _episode_rngs(task: Task, seed: int, episode: int):
     return np.random.default_rng([seed, task_id, episode, 0]), np.random.default_rng([seed, task_id, episode, 1])
 
 
-def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed: int = 0, sampled: bool = True,
+def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED, sampled: bool = True,
              arenas: int = 32, time_limit: float = None, on_progress=None, record_first: int = 0) -> TaskResult:
     """Scores `policy` on `task`.
 
-    `time_limit` overrides the task's own limit. A result with an override, or with a
-    different number of episodes than the official one, is not official.
+    `time_limit` overrides the task's own limit. A result with an override, with a different
+    number of episodes than the official one, or with a different seed, is not official.
 
     With `record_first`, the first that many episodes are recorded frame by frame and
     returned in the result's `replays`.
@@ -180,6 +187,6 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
         time_limit=limit,
         seed=seed,
         sampled=sampled,
-        official=time_limit is None and episodes == OFFICIAL_EPISODES and sampled,
+        official=time_limit is None and episodes == OFFICIAL_EPISODES and sampled and seed == OFFICIAL_SEED,
         replays=sorted(replays, key=lambda r: r["episode"]),
     )

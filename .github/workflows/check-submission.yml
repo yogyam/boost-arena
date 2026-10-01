@@ -1,6 +1,8 @@
 # Runs on every pull request that touches submissions/. It has no secrets and cannot open a
-# sealed model; it checks that the manifest is well formed and that the sealed file is where
-# the manifest says it is, with the right checksum.
+# sealed model; it checks that the manifest is well formed, that the sealed file is where the
+# manifest says it is with the right checksum, that the manifest names the person opening the
+# pull request, and that they are within the limit on scorings. Values from the pull request
+# reach the shell only through environment variables, never by substitution into the script.
 name: Check submission
 
 on:
@@ -14,35 +16,48 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065   # v5.6.0
         with:
           python-version: "3.12"
 
       - name: Install
         run: pip install --quiet .
 
-      - name: Find the submissions this pull request changes
-        id: changed
-        run: |
-          folders=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" -- submissions/ \
-            | awk -F/ 'NF >= 3 { print $1 "/" $2 }' | sort -u | tr '\n' ' ')
-          echo "folders=$folders" >> "$GITHUB_OUTPUT"
-          echo "Changed: $folders"
-
       - name: Refuse changes outside submissions/
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.sha }}
         run: |
-          other=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" | grep -v '^submissions/' || true)
+          other=$(git diff --name-only "$BASE" "$HEAD" | grep -v '^submissions/' || true)
           if [ -n "$other" ]; then
             echo "A submission pull request may only change files under submissions/. Also changed:"
             echo "$other"
             exit 1
           fi
 
-      - name: Verify
-        if: steps.changed.outputs.folders != ''
-        run: boost-arena verify-submission ${{ steps.changed.outputs.folders }}
+      - name: Verify the submissions this pull request changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.sha }}
+          PR_LOGIN: ${{ github.event.pull_request.user.login }}
+        run: |
+          folders=()
+          while IFS= read -r folder; do
+            if [[ "$folder" =~ ^submissions/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+              folders+=("$folder")
+            else
+              echo "Not a submission folder: $folder"
+              exit 1
+            fi
+          done < <(git diff --name-only "$BASE" "$HEAD" -- submissions/ | awk -F/ 'NF >= 3 { print $1 "/" $2 }' | sort -u)
+          if [ "${#folders[@]}" -eq 0 ]; then
+            echo "No submission changed"
+            exit 0
+          fi
+          boost-arena verify-submission --submissions submissions --results results --github-login "$PR_LOGIN" "${folders[@]}"

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Boost Arena replay</title>
 <style>
   :root { color-scheme: light dark; --ink: #1b1b1b; --muted: #6b6b6b; --line: #d9d9d9; --bg: #fafaf8; --card: #ffffff; --accent: #2a78d6; }
@@ -51,7 +52,7 @@
   <footer><p>Boost Arena is a fan project and is not affiliated with Psyonix or Epic Games. Portions of the materials used are trademarks and/or copyrighted works of Epic Games, Inc. All rights reserved by Epic. This material is not official and is not endorsed by Epic.</p></footer>
 </main>
 
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
 <script type="module">
 import * as THREE from "three";
 

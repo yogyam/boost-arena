@@ -5,8 +5,6 @@ numbers, the same 90 actions and mask, the same timing, boost and car body.
 """
 
 import math
-import os
-from typing import Any, Dict, List
 
 import numpy as np
 from rlgym.api import ActionParser, DoneCondition, ObsBuilder, RewardFunction, StateMutator
@@ -15,9 +13,9 @@ from rlgym.rocket_league.api import GameState
 from rlgym.rocket_league.state_mutators import KickoffMutator
 
 from .. import interface
-from ..interface import BLUE, ORANGE, BallInfo, CarInfo
+from ..interface import BallInfo, CarInfo
 from ..tasks import CAR_REST_HEIGHT, BALL_REST_HEIGHT, TASKS
-from .curriculum import ALL_REWARDS, ALL_SITUATIONS, ProgressReader
+from .curriculum import ALL_REWARDS, ProgressReader
 
 TICK_SKIP = interface.TICK_SKIP
 ACTION_DELAY = interface.ACTION_DELAY

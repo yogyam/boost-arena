@@ -19,7 +19,7 @@ import numpy as np
 from . import interface
 from .interface import BLUE, ORANGE
 from .policy import Policy
-from .runner import _frame
+from .runner import OFFICIAL_SEED, SEASON, _frame
 from .sim import Game
 from .tasks import TASKS
 
@@ -60,7 +60,7 @@ def _kickoff(game: Game, rng: np.random.Generator):
         car.set_state(state)
 
 
-def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = 0,
+def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED,
               arenas: int = 32, record_first: int = 0) -> DuelTally:
     """Blue against orange in `kind`. In the penalty duel blue attacks and orange keeps goal."""
     if kind not in DUEL_KINDS:
@@ -140,11 +140,11 @@ def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_
     return tally
 
 
-def run_pair(policy_a: Policy, policy_b: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = 0,
+def run_pair(policy_a: Policy, policy_b: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED,
              arenas: int = 32, record_first: int = 0) -> dict:
     """Every duel kind, both ways round. Returns points for A and B, per kind and in total."""
-    document = {"episodes_per_direction": episodes, "seed": seed, "duel_set_version": DUEL_SET_VERSION,
-                "official": episodes == OFFICIAL_EPISODES, "kinds": {}, "replays": {}}
+    document = {"episodes_per_direction": episodes, "seed": seed, "season": SEASON, "duel_set_version": DUEL_SET_VERSION,
+                "official": episodes == OFFICIAL_EPISODES and seed == OFFICIAL_SEED, "kinds": {}, "replays": {}}
     total_a = total_b = 0
     for kind in DUEL_KINDS:
         a_blue = play_duel(kind, policy_a, policy_b, episodes, seed, arenas, record_first)
