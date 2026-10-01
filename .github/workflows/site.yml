@@ -7,6 +7,7 @@ on:
     paths:
       - "results/**"
       - "replays/**"
+      - "duels/**"
       - "src/boost_arena/site.py"
       - "src/boost_arena/replay.html"
       - ".github/workflows/site.yml"
@@ -38,7 +39,7 @@ jobs:
         run: pip install --quiet .
 
       - name: Build
-        run: boost-arena build-site --results results --replays replays --output site
+        run: boost-arena build-site --results results --replays replays --duels duels --output site
 
       - uses: actions/configure-pages@v5
 

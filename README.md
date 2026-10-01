@@ -62,6 +62,10 @@ Scores from your own machine are for your own use. Official leaderboard scores w
 
 Each task is played 1,000 times. The overall score is the average success rate, out of 100. See [docs/TASKS.md](docs/TASKS.md) for the details, including how the reference keeper behaves.
 
+## Duels
+
+Scored bots also play each other: a penalty duel, attacking then defending, and a kickoff duel. The results give every bot a head-to-head rating, shown below the task leaderboard. See [docs/DUELS.md](docs/DUELS.md).
+
 ## Training a bot
 
 Don't have a bot yet? The starter kit trains one on your own computer with reinforcement learning and exports it as a submission: see [docs/STARTER_KIT.md](docs/STARTER_KIT.md).

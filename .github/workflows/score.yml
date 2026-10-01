@@ -13,6 +13,8 @@ on:
     paths:
       - "submissions/**"
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"   # Weekly, to play any duels still outstanding
 
 concurrency:
   group: score
@@ -37,6 +39,16 @@ jobs:
         env:
           BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
         run: boost-arena process-submissions --submissions submissions --results results --replays replays --output new_results
+
+      # Duels need the results just produced, so the new result files stand in for published ones
+      - name: Play new duels
+        env:
+          BOOST_ARENA_PRIVATE_KEY: ${{ secrets.BOOST_ARENA_PRIVATE_KEY }}
+        run: |
+          mkdir -p merged_results new_results
+          cp results/*.json merged_results/ 2>/dev/null || true
+          cp new_results/*.json merged_results/ 2>/dev/null || true
+          boost-arena process-duels --submissions submissions --results merged_results --duels duels --output new_results --max-pairs 15
 
       - uses: actions/upload-artifact@v4
         with:
@@ -83,12 +95,16 @@ jobs:
             boost-arena validate-results new_results/*.replays.json.gz
             cp new_results/*.replays.json.gz replays/
           fi
+          if ls new_results/duels/* > /dev/null 2>&1; then
+            boost-arena validate-results new_results/duels/*
+            cp new_results/duels/* duels/
+          fi
 
       - name: Commit
         run: |
           git config user.name "boost-arena scoring"
           git config user.email "scoring@users.noreply.github.com"
-          git add results replays
+          git add results replays duels
           if git diff --cached --quiet; then
             echo "Nothing to commit"
           else
@@ -97,7 +113,7 @@ jobs:
           fi
 
       - name: Build the website
-        run: boost-arena build-site --results results --replays replays --output site
+        run: boost-arena build-site --results results --replays replays --duels duels --output site
 
       - uses: actions/configure-pages@v5
 

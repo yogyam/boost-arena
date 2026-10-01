@@ -183,16 +183,80 @@ def _cmd_process_submissions(args):
     return 0
 
 
+def _cmd_duel(args):
+    from .duels import DUEL_KINDS, run_pair
+
+    try:
+        a, b = Policy.from_file(args.a), Policy.from_file(args.b)
+    except InvalidModel as e:
+        print(f"Not accepted: {e}")
+        return 1
+    started = time.time()
+    result = run_pair(a, b, episodes=args.episodes)
+    name_a, name_b = os.path.basename(args.a), os.path.basename(args.b)
+    for kind, tally in result["kinds"].items():
+        print(f"{DUEL_KINDS[kind]:14s} {name_a} {tally['a_points']} - {tally['b_points']} {name_b}"
+              + (f", {tally['draws']} draws" if tally["draws"] else ""))
+    print(f"{'Total':14s} {name_a} {result['a_points']} - {result['b_points']} {name_b}")
+    print(f"{args.episodes} episodes per direction, {time.time() - started:.0f} s")
+    return 0
+
+
+def _cmd_process_duels(args):
+    from .duel_service import open_bot, pairs_to_play, play_pair, write_duel_replays
+    from .submissions import SubmissionError
+
+    private_key = os.environ.get(PRIVATE_KEY_VARIABLE, "").strip()
+    if not private_key:
+        raise SystemExit(f"The private key must be in the {PRIVATE_KEY_VARIABLE} environment variable")
+
+    pending = pairs_to_play(args.submissions, args.results, args.duels)
+    if not pending:
+        print("No duels to play")
+        return 0
+    if len(pending) > args.max_pairs:
+        print(f"{len(pending)} pairs to play, doing {args.max_pairs} this time")
+        pending = pending[: args.max_pairs]
+
+    policies = {}
+    os.makedirs(os.path.join(args.output, "duels"), exist_ok=True)
+    for a, b in pending:
+        try:
+            for slug in (a, b):
+                if slug not in policies:
+                    policies[slug] = open_bot(args.submissions, slug, private_key, allow_local=args.allow_local)
+        except SubmissionError as e:
+            print(f"{a} vs {b}: skipped, {e}")
+            continue
+        started = time.time()
+        document, replays = play_pair(args.submissions, a, b, policies, episodes=args.episodes)
+        name = document["a"] + "__" + document["b"]
+        with open(os.path.join(args.output, "duels", name + ".json"), "w", encoding="utf-8") as f:
+            json.dump(document, f, indent=2)
+            f.write("\n")
+        write_duel_replays(replays, os.path.join(args.output, "duels", name + ".replays.json.gz"))
+        print(f"{a} {document['a_points']} - {document['b_points']} {b} in {time.time() - started:.0f} s")
+    return 0
+
+
 def _cmd_validate_results(args):
+    from .duel_service import read_duel_replays, validate_duel_document, validate_duel_replays_document
     from .submissions import MAX_REPLAY_BYTES, REPLAYS_SUFFIX, SubmissionError, read_replays, validate_replays_document, validate_result_document
 
     failed = 0
     for path in args.file:
         try:
+            is_duel = os.path.basename(os.path.dirname(os.path.abspath(path))) == "duels"
             if path.endswith(REPLAYS_SUFFIX):
                 if os.path.getsize(path) > MAX_REPLAY_BYTES:
                     raise SubmissionError("The replays file is too large")
-                validate_replays_document(read_replays(path))
+                if is_duel:
+                    validate_duel_replays_document(read_duel_replays(path))
+                else:
+                    validate_replays_document(read_replays(path))
+            elif is_duel:
+                with open(path, "r", encoding="utf-8") as f:
+                    validate_duel_document(json.load(f))
             else:
                 with open(path, "r", encoding="utf-8") as f:
                     validate_result_document(json.load(f))
@@ -206,7 +270,7 @@ def _cmd_validate_results(args):
 def _cmd_build_site(args):
     from .site import build_site
 
-    path = build_site(args.results, args.output, args.replays)
+    path = build_site(args.results, args.output, args.replays, args.duels)
     print(f"Wrote {path}")
     return 0
 
@@ -277,6 +341,22 @@ def main(argv=None):
     process.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
     process.set_defaults(run=_cmd_process_submissions)
 
+    duel = commands.add_parser("duel", help="Play two models against each other")
+    duel.add_argument("a")
+    duel.add_argument("b")
+    duel.add_argument("--episodes", type=int, default=100, help="Per direction of each duel kind (official: 200)")
+    duel.set_defaults(run=_cmd_duel)
+
+    process_duels = commands.add_parser("process-duels", help="Play the duels that have not been played (needs the private key)")
+    process_duels.add_argument("--submissions", default="submissions")
+    process_duels.add_argument("--results", default="results")
+    process_duels.add_argument("--duels", default="duels")
+    process_duels.add_argument("--output", default="new_results")
+    process_duels.add_argument("--max-pairs", type=int, default=15, help="At most this many pairs per run")
+    process_duels.add_argument("--episodes", type=int, default=None, help=argparse.SUPPRESS)
+    process_duels.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
+    process_duels.set_defaults(run=_cmd_process_duels)
+
     validate = commands.add_parser("validate-results", help="Check result and replay files before they are published")
     validate.add_argument("file", nargs="+")
     validate.set_defaults(run=_cmd_validate_results)
@@ -284,6 +364,7 @@ def main(argv=None):
     site = commands.add_parser("build-site", help="Build the leaderboard website")
     site.add_argument("--results", default="results")
     site.add_argument("--replays", default="replays")
+    site.add_argument("--duels", default="duels")
     site.add_argument("--output", default="site")
     site.set_defaults(run=_cmd_build_site)
 

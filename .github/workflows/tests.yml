@@ -7,11 +7,13 @@ on:
       - "submissions/**"
       - "results/**"
       - "replays/**"
+      - "duels/**"
   pull_request:
     paths-ignore:
       - "submissions/**"
       - "results/**"
       - "replays/**"
+      - "duels/**"
 
 permissions:
   contents: read

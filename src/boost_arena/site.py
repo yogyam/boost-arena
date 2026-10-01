@@ -6,6 +6,9 @@ import json
 import os
 import shutil
 
+from .duel_service import duel_points
+from .duels import DUEL_KINDS
+from .rating import expected_share, ratings
 from .submissions import REPLAYS_SUFFIX
 from .tasks import TASKS
 
@@ -82,7 +85,67 @@ def _link(url: str, text: str) -> str:
     return _e(text)
 
 
-def render(documents: list) -> str:
+def render_duels(documents: list, duels: list) -> str:
+    """The duel rating table and, for a handful of bots, the grid of every pairing."""
+    if not duels:
+        return ""
+    names = {d["_slug"]: d["manifest"]["name"] for d in documents if "manifest" in d}
+    points = {}
+    played = {}
+    for duel in duels:
+        a, b = duel["a"], duel["b"]
+        points[(a, b)] = points.get((a, b), 0) + duel["a_points"]
+        points[(b, a)] = points.get((b, a), 0) + duel["b_points"]
+        played[a] = played.get(a, 0) + 1
+        played[b] = played.get(b, 0) + 1
+    rating = ratings(points)
+    order = sorted(rating, key=lambda slug: -rating[slug])
+
+    rows = []
+    for rank, slug in enumerate(order, start=1):
+        won = sum(v for (x, _), v in points.items() if x == slug)
+        lost = sum(v for (_, y), v in points.items() if y == slug)
+        rows.append(
+            f'<tr><td data-value="{rank}">{rank}</td>'
+            f'<td class="text" data-value="{_e(names.get(slug, slug).lower())}">{_e(names.get(slug, slug))}</td>'
+            f'<td class="overall" data-value="{rating[slug]}">{rating[slug]:.0f}</td>'
+            f'<td data-value="{played.get(slug, 0)}">{played.get(slug, 0)}</td>'
+            f'<td data-value="{won}">{won}</td><td data-value="{lost}">{lost}</td></tr>'
+        )
+    table = ('<div class="card"><table><thead><tr><th data-sort="number">#</th><th class="text" data-sort="text">Bot</th>'
+             '<th data-sort="number">Rating</th><th data-sort="number">Opponents</th><th data-sort="number">Points won</th>'
+             f'<th data-sort="number">Points lost</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+
+    grid = ""
+    if 2 <= len(order) <= 12:
+        by_pair = {(d["a"], d["b"]): d for d in duels}
+        head = "".join(f'<th title="{_e(names.get(s, s))}">{rank + 1}</th>' for rank, s in enumerate(order))
+        body = []
+        for i, a in enumerate(order):
+            cells = []
+            for b in order:
+                if a == b:
+                    cells.append('<td class="small">–</td>')
+                    continue
+                duel = by_pair.get((min(a, b), max(a, b)))
+                if duel is None:
+                    cells.append('<td class="small">not yet</td>')
+                    continue
+                mine, theirs = (duel["a_points"], duel["b_points"]) if a == duel["a"] else (duel["b_points"], duel["a_points"])
+                pair = duel["a"] + "__" + duel["b"]
+                title = ", ".join(f"{DUEL_KINDS[k]}: {v['a_points'] if a == duel['a'] else v['b_points']}-{v['b_points'] if a == duel['a'] else v['a_points']}" for k, v in duel["kinds"].items())
+                cells.append(f'<td title="{_e(title)}"><a href="replay.html?duel={_e(pair)}">{mine}-{theirs}</a></td>')
+            body.append(f'<tr><td class="text"><strong>{i + 1}</strong> {_e(names.get(a, a))}</td>{"".join(cells)}</tr>')
+        grid = (f'<h2>Every pairing</h2><div class="card"><table><thead><tr><th class="text">Points for the row bot against…</th>{head}</tr></thead>'
+                f'<tbody>{"".join(body)}</tbody></table></div>'
+                '<p class="small">Each pairing plays 200 episodes per direction of each duel kind. Click a result to watch it.</p>')
+
+    return (f'<h2>Duels</h2><p class="lead">Bots play each other directly: a penalty duel, attacking then defending, and a kickoff duel. '
+            f'The rating is fitted to every point won and lost; 400 points of difference means winning about ten points in eleven.</p>'
+            f'{table}{grid}')
+
+
+def render(documents: list, duels: list = None) -> str:
     scored = [d for d in documents if "results" in d and "error" not in d]
     failed = [d for d in documents if "error" in d]
     scored.sort(key=lambda d: (-d["overall_score"], d["manifest"]["name"].lower()))
@@ -153,6 +216,7 @@ def render(documents: list) -> str:
 {table}
 <p class="small">Success rates over 1,000 episodes per task. Overall is the average of the six, out of 100. Hover a score for its confidence interval: differences smaller than it are not meaningful. Click a column heading to sort. Replays show the first five episodes of each task, which are the same situations for every bot.</p>
 {failed_html}
+{render_duels(documents, duels or [])}
 <footer><p>{DISCLAIMER}</p><p>Built {built}.</p></footer>
 </main>
 <script>{SCRIPT}</script>
@@ -161,9 +225,25 @@ def render(documents: list) -> str:
 """
 
 
-def build_site(results_folder: str, output_folder: str, replays_folder: str = None) -> str:
+def load_duels(duels_folder: str) -> list:
+    duels = []
+    if duels_folder and os.path.isdir(duels_folder):
+        for name in sorted(os.listdir(duels_folder)):
+            if name.endswith(".json"):
+                with open(os.path.join(duels_folder, name), "r", encoding="utf-8") as f:
+                    duels.append(json.load(f))
+    return duels
+
+
+def build_site(results_folder: str, output_folder: str, replays_folder: str = None, duels_folder: str = None) -> str:
     documents = load_results(results_folder)
-    os.makedirs(os.path.join(output_folder, "replays"), exist_ok=True)
+    duels = load_duels(duels_folder)
+    os.makedirs(os.path.join(output_folder, "replays", "duels"), exist_ok=True)
+
+    for duel in duels:
+        source = os.path.join(duels_folder, duel["a"] + "__" + duel["b"] + REPLAYS_SUFFIX)
+        if os.path.isfile(source):
+            shutil.copyfile(source, os.path.join(output_folder, "replays", "duels", os.path.basename(source)))
 
     # Replays are copied next to the page, one compressed file per bot
     for document in documents:
@@ -174,7 +254,7 @@ def build_site(results_folder: str, output_folder: str, replays_folder: str = No
 
     path = os.path.join(output_folder, "index.html")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(render(documents))
+        f.write(render(documents, duels))
 
     template = os.path.join(os.path.dirname(__file__), "replay.html")
     with open(template, "r", encoding="utf-8") as f:

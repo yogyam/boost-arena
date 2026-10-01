@@ -46,7 +46,7 @@
     <span class="label">Camera</span><span id="cameras"></span>
   </div>
   <div id="status"></div>
-  <p class="small">The blue car is the bot. It attacks the orange goal, at the far end in the stadium view. Positions are recorded 15 times a second and smoothed in between. Drag on the picture to look around.</p>
+  <p class="small">In a task replay the blue car is the bot; in a duel the heading says who is blue. Blue attacks the orange goal, at the far end in the stadium view. Positions are recorded 15 times a second and smoothed in between. Drag on the picture to look around.</p>
 
   <footer><p>Boost Arena is a fan project and is not affiliated with Psyonix or Epic Games. Portions of the materials used are trademarks and/or copyrighted works of Epic Games, Inc. All rights reserved by Epic. This material is not official and is not endorsed by Epic.</p></footer>
 </main>
@@ -60,6 +60,7 @@ const OUTCOME_TEXT = { success: "scored", conceded: "conceded", timeout: "ran ou
 
 const params = new URLSearchParams(location.search);
 const slug = (params.get("bot") || "").replace(/[^a-z0-9-]/g, "");
+const duel = (params.get("duel") || "").replace(/[^a-z0-9_-]/g, "");
 const status = document.getElementById("status");
 
 // ---------- Scene ----------
@@ -224,10 +225,10 @@ function showEpisode(index) {
   time = 0; setPlaying(false);
   scrub.max = replay.frames.length - 1; scrub.value = 0;
   updateTime();
-  const situation = `Episode ${replay.episode + 1}: the bot ${OUTCOME_TEXT[replay.outcome]} after ${replay.seconds.toFixed(1)} s.`;
+  const situation = `Episode ${replay.episode + 1}: ${duel ? "" : "the bot "}${OUTCOME_TEXT[replay.outcome]} after ${replay.seconds.toFixed(1)} s.`;
   status.textContent = situation;
   choices("episodes", data.tasks[task].map((r, i) => ({ label: String(r.episode + 1), value: i, tag: r.outcome })), episode, showEpisode);
-  history.replaceState(null, "", `?bot=${slug}&task=${task}&episode=${episode}`);
+  history.replaceState(null, "", duel ? `?duel=${duel}&task=${task}&episode=${episode}` : `?bot=${slug}&task=${task}&episode=${episode}`);
   setPlaying(true);
 }
 
@@ -264,13 +265,27 @@ async function loadReplays(url) {
 }
 
 (async () => {
-  if (!slug) { status.textContent = "No bot given. Open a replay from the leaderboard."; return; }
+  if (!slug && !duel) { status.textContent = "No bot given. Open a replay from the leaderboard."; return; }
   try {
-    data = await loadReplays(`replays/${slug}.replays.json.gz`);
     const meta = await fetch(`results.json`).then(r => r.ok ? r.json() : []).catch(() => []);
-    const entry = meta.find(d => d.slug === slug);
-    document.getElementById("bot").textContent = entry && entry.manifest ? `${entry.manifest.name} by ${entry.manifest.author}` : slug;
-    document.title = `${entry && entry.manifest ? entry.manifest.name : slug} · Boost Arena replay`;
+    const nameOf = s => { const e = meta.find(d => d.slug === s); return e && e.manifest ? e.manifest.name : s; };
+    if (duel) {
+      data = await loadReplays(`replays/duels/${duel}.replays.json.gz`);
+      const a = nameOf(data.a), b = nameOf(data.b);
+      data.tasks = data.kinds;
+      for (const kind of Object.keys(data.tasks)) {
+        const base = kind.replace(/_(a|b)_blue$/, ""), aIsBlue = kind.endsWith("_a_blue");
+        TASK_NAMES[kind] = `${base === "penalty" ? "Penalty" : "Kickoff"}: ${aIsBlue ? a : b} (blue) v ${aIsBlue ? b : a} (orange)`;
+      }
+      OUTCOME_TEXT.blue = "blue won the point"; OUTCOME_TEXT.orange = "orange won the point"; OUTCOME_TEXT.draw = "drew";
+      document.getElementById("bot").textContent = `Duel: ${a} v ${b}`;
+      document.title = `${a} v ${b} · Boost Arena duel`;
+    } else {
+      data = await loadReplays(`replays/${slug}.replays.json.gz`);
+      const entry = meta.find(d => d.slug === slug);
+      document.getElementById("bot").textContent = entry && entry.manifest ? `${entry.manifest.name} by ${entry.manifest.author}` : slug;
+      document.title = `${entry && entry.manifest ? entry.manifest.name : slug} · Boost Arena replay`;
+    }
     const wanted = params.get("task");
     showTask(wanted && data.tasks[wanted] ? wanted : Object.keys(data.tasks)[0]);
     const wantedEpisode = parseInt(params.get("episode") || "0", 10);
