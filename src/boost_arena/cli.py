@@ -158,7 +158,7 @@ def _cmd_verify_submission(args):
             failed += 1
     if args.github_login is not None and not failed:
         try:
-            check_pull_request(args.folder, args.github_login, args.submissions, args.results)
+            check_pull_request(args.folder, args.github_login, args.submissions, args.results, exempt=tuple(args.exempt or ()))
             print(f"OK   pull request by {args.github_login}")
         except SubmissionError as e:
             print(f"FAIL pull request: {e}")
@@ -426,6 +426,7 @@ def main(argv=None):
     verify.add_argument("--submissions", default="submissions", help="All submissions, to refuse copies of another bot")
     verify.add_argument("--results", default="results", help="Published results, for the limit on scorings per person")
     verify.add_argument("--github-login", default=None, help="Who opened the pull request; checked against the manifests")
+    verify.add_argument("--exempt", action="append", help="Logins not held to the scoring limit: the maintainers' baseline bots")
     verify.add_argument("--allow-local", action="store_true", help=argparse.SUPPRESS)
     verify.set_defaults(run=_cmd_verify_submission)
 

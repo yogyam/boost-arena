@@ -22,6 +22,7 @@ Boost Arena exists so people can learn reinforcement learning, compare methods f
 6. **Up to three bots per person on the leaderboard.** Update one instead of adding a fourth.
 7. **Up to three scorings per person in any 30 days**, counting new bots and updates together. Test locally first; the official run is not for finding out whether a model works.
 8. **One GitHub account per person.** The manifest names the account that opens the pull request, the sealed file is tied to it, and scorings are counted per account. Second accounts are removed along with their entries.
+9. **Baselines are exempt from the limits.** The project keeps reference bots on the leaderboard (a random bot, the paper reproduction at several stages, the starter kit's output) so entrants have something to measure against. They are marked as the maintainers' and do not count towards rules 6 and 7.
 
 ## Model files
 

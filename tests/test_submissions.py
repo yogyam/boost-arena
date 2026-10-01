@@ -205,6 +205,7 @@ def test_pull_request_checks(tmp_path, keys, model_path):
         "scored_at": "2999-01-01T00:00:00Z", "manifest": load_manifest(third).to_dict()}))
     with pytest.raises(SubmissionError, match="limit"):
         check_pull_request([folder], "tester", submissions, results)
+    check_pull_request([folder], "tester", submissions, results, exempt=("Tester",))   # Baselines are exempt
     # Updating one of those three is fine: it is scored again, not in addition
     check_pull_request([third], "tester", submissions, results)
     # Old scorings do not count

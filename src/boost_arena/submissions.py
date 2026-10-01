@@ -304,8 +304,11 @@ def check_not_a_copy(manifest: Manifest, submissions_folder: str) -> None:
             raise SubmissionError(f"The name '{manifest.name}' is already used by '{os.path.basename(other_folder)}'")
 
 
-def check_pull_request(folders: list, github_login: str, submissions_folder: str, results_folder: str) -> None:
-    """What the pull request check knows that the manifest alone does not: who opened it, and what they already have."""
+def check_pull_request(folders: list, github_login: str, submissions_folder: str, results_folder: str, exempt: tuple = ()) -> None:
+    """What the pull request check knows that the manifest alone does not: who opened it, and what they already have.
+
+    `exempt` logins are not held to the scoring limit: the project's own baseline bots (see RULES.md).
+    """
     if not GITHUB_LOGIN_PATTERN.match(github_login or ""):
         raise SubmissionError("The pull request author is not a valid GitHub login")
     changed = set()
@@ -314,6 +317,8 @@ def check_pull_request(folders: list, github_login: str, submissions_folder: str
         if manifest.github.lower() != github_login.lower():
             raise SubmissionError(f"{manifest.slug}: the manifest names '{manifest.github}' but the pull request is from '{github_login}'")
         changed.add(manifest.slug)
+    if github_login.lower() in {login.lower() for login in exempt}:
+        return
 
     # The scorings this person already had in the period, plus the ones this pull request asks for
     since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=SCORING_PERIOD_DAYS)

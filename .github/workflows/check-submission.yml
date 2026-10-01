@@ -60,4 +60,4 @@ jobs:
             echo "No submission changed"
             exit 0
           fi
-          boost-arena verify-submission --submissions submissions --results results --github-login "$PR_LOGIN" "${folders[@]}"
+          boost-arena verify-submission --submissions submissions --results results --github-login "$PR_LOGIN" --exempt yogyam "${folders[@]}"
