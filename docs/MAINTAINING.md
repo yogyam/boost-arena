@@ -37,4 +37,4 @@ Add `"<slug>": "https://github.com/yogyam/boost-arena/issues/<n>"` to `flags.jso
 
 ## Branch protection
 
-`main` should require the `Check submission` and `Tests` checks to pass, and a review from a code owner for anything outside `submissions/` (see `.github/CODEOWNERS`). Set this in the repository settings; it is not in the code.
+A ruleset on `main` forbids deleting it and force-pushing to it. Required status checks are not switched on: on a repository owned by a personal account, GitHub cannot let the scoring workflow bypass them, and its "Add results" pushes would be rejected. So merging is the maintainer's responsibility: **never merge a submission pull request whose "Check submission" check has failed, or that touches anything outside `submissions/`.** If the repository moves to an organization, add the GitHub Actions app as a bypass actor and require the `check` and `test` contexts.
