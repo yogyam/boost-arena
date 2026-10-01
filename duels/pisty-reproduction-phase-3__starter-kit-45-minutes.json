@@ -1,0 +1,46 @@
+{
+  "a": "pisty-reproduction-phase-3",
+  "b": "starter-kit-45-minutes",
+  "a_manifest_sha256": "d2ab1436f0b12a59102849c20097f09556198713241195abdcf9ca20a315f26b",
+  "b_manifest_sha256": "004873285765b1d37d2dc0b3cabaa139b31cbef98762c0919b78b4882efe273e",
+  "played_at": "2026-10-01T00:20:09Z",
+  "benchmark_version": "0.1.0",
+  "episodes_per_direction": 200,
+  "seed": 0,
+  "duel_set_version": 1,
+  "official": true,
+  "kinds": {
+    "penalty": {
+      "a_points": 322,
+      "b_points": 78,
+      "draws": 0,
+      "a_as_blue": {
+        "a": 124,
+        "b": 76,
+        "draws": 0
+      },
+      "b_as_blue": {
+        "a": 198,
+        "b": 2,
+        "draws": 0
+      }
+    },
+    "kickoff": {
+      "a_points": 158,
+      "b_points": 14,
+      "draws": 228,
+      "a_as_blue": {
+        "a": 80,
+        "b": 7,
+        "draws": 113
+      },
+      "b_as_blue": {
+        "a": 78,
+        "b": 7,
+        "draws": 115
+      }
+    }
+  },
+  "a_points": 480,
+  "b_points": 92
+}
