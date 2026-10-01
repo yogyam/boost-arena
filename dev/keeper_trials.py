@@ -5,11 +5,12 @@ import math
 import numpy as np
 import RocketSim as rs
 
-from boost_arena.interface import BLUE
-from boost_arena.keeper import LINE_Y, START_POS, START_YAW, Keeper
+from boost_arena.interface import (
+    BLUE,
+    GOAL_LINE,  # noqa: E402
+)
+from boost_arena.keeper import START_POS, START_YAW, Keeper
 from boost_arena.sim import Game, ball_path
-
-GOAL_LINE = 5124.25 + 91.25
 
 
 def trial(ball_pos, ball_vel, seconds=5.0):
@@ -58,4 +59,6 @@ if __name__ == "__main__":
         ("medium, anywhere, top of goal", (1500, 2400), (-800, 800), (450, 600)),
     ]:
         g, n, h = shots(rng, speed, xs, hs)
-        print(f"{label:30s} {g:3d} of {n:3d} on-target shots beat the keeper ({g / max(n, 1):.0%}), keeper reached height {h:.0f}")
+        print(
+            f"{label:30s} {g:3d} of {n:3d} on-target shots beat the keeper ({g / max(n, 1):.0%}), keeper reached height {h:.0f}"
+        )

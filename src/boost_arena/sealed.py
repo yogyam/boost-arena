@@ -68,7 +68,9 @@ def decode_private_key(text: str) -> X25519PrivateKey:
 
 
 def _derive_key(shared_secret: bytes, sender_public: bytes, receiver_public: bytes) -> bytes:
-    return HKDF(algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=INFO + sender_public + receiver_public).derive(shared_secret)
+    return HKDF(algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=INFO + sender_public + receiver_public).derive(
+        shared_secret
+    )
 
 
 def _binding(slug: str, github: str) -> bytes:
@@ -106,17 +108,19 @@ def open_sealed(data: bytes, private_key_text: str, slug: str, github: str) -> b
     receiver_raw = receiver.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
 
     offset = len(MAGIC)
-    sender_raw = data[offset:offset + KEY_BYTES]
-    nonce = data[offset + KEY_BYTES:offset + KEY_BYTES + NONCE_BYTES]
-    header = data[:offset + KEY_BYTES + NONCE_BYTES]
-    body = data[len(header):]
+    sender_raw = data[offset : offset + KEY_BYTES]
+    nonce = data[offset + KEY_BYTES : offset + KEY_BYTES + NONCE_BYTES]
+    header = data[: offset + KEY_BYTES + NONCE_BYTES]
+    body = data[len(header) :]
 
     try:
         sender = X25519PublicKey.from_public_bytes(sender_raw)
         key = _derive_key(receiver.exchange(sender), sender_raw, receiver_raw)
         return ChaCha20Poly1305(key).decrypt(nonce, body, header + _binding(slug, github))
     except InvalidTag:
-        raise SealedFileError("The file was not sealed for this key and this submission, or has been changed since it was sealed") from None
+        raise SealedFileError(
+            "The file was not sealed for this key and this submission, or has been changed since it was sealed"
+        ) from None
     except SealedFileError:
         raise
     except Exception:

@@ -4,10 +4,9 @@ duel without it in separate processes, then check everything against the reposit
 import json
 import os
 
-import pytest
-
 import numpy as np
 import onnx
+import pytest
 from onnx import numpy_helper
 
 from boost_arena.cli import PRIVATE_KEY_VARIABLE, main
@@ -50,8 +49,27 @@ def test_open_score_duel_and_validate(tmp_path, monkeypatch, capsys):
 
     # Opening is the only step with the key, and it removes the key from the environment
     monkeypatch.setenv(PRIVATE_KEY_VARIABLE, private)
-    assert main(["open-submissions", "--submissions", submissions, "--results", results, "--replays", replays,
-                 "--duels", duels, "--models", models, "--output", output, "--allow-local"]) == 0
+    assert (
+        main(
+            [
+                "open-submissions",
+                "--submissions",
+                submissions,
+                "--results",
+                results,
+                "--replays",
+                replays,
+                "--duels",
+                duels,
+                "--models",
+                models,
+                "--output",
+                output,
+                "--allow-local",
+            ]
+        )
+        == 0
+    )
     assert PRIVATE_KEY_VARIABLE not in os.environ
     assert sorted(os.listdir(models)) == ["alpha.json", "alpha.onnx", "beta.json", "beta.onnx", "results"]
 
@@ -69,8 +87,26 @@ def test_open_score_duel_and_validate(tmp_path, monkeypatch, capsys):
         if name.endswith(".json"):
             with open(os.path.join(output, name), "rb") as src, open(os.path.join(merged, name), "wb") as dst:
                 dst.write(src.read())
-    assert main(["process-duels", "--submissions", submissions, "--results", merged, "--duels", duels, "--models", models,
-                 "--output", output, "--episodes", "2"]) == 0
+    assert (
+        main(
+            [
+                "process-duels",
+                "--submissions",
+                submissions,
+                "--results",
+                merged,
+                "--duels",
+                duels,
+                "--models",
+                models,
+                "--output",
+                output,
+                "--episodes",
+                "2",
+            ]
+        )
+        == 0
+    )
     assert sorted(os.listdir(os.path.join(output, "duels"))) == ["alpha__beta.json", "alpha__beta.replays.json.gz"]
 
     # The publish job checks everything against the repository. These results are not official (2 episodes)
@@ -88,8 +124,20 @@ def test_open_score_duel_and_validate(tmp_path, monkeypatch, capsys):
     data["manifest"]["description"] = "forged"
     with open(os.path.join(output, "alpha.json"), "w") as f:
         json.dump(data, f)
-    assert main(["validate-results", "--submissions", submissions, "--results", results, "--allow-unofficial",
-                 os.path.join(output, "alpha.json")]) == 1
+    assert (
+        main(
+            [
+                "validate-results",
+                "--submissions",
+                submissions,
+                "--results",
+                results,
+                "--allow-unofficial",
+                os.path.join(output, "alpha.json"),
+            ]
+        )
+        == 1
+    )
     assert "differs" in capsys.readouterr().out
 
     # Nothing is pending afterwards, and the opened models are gone from the published output

@@ -23,7 +23,7 @@ def newest_checkpoint(run_folder: str) -> str:
     for folder, _, files in os.walk(os.path.join(run_folder, "checkpoints")):
         if ACTOR_CRITIC_FILE in files:
             path = os.path.join(folder, ACTOR_CRITIC_FILE)
-            candidates.append((os.path.getmtime(path), os.path.dirname(folder)))   # The folder above ppo_learner/
+            candidates.append((os.path.getmtime(path), os.path.dirname(folder)))  # The folder above ppo_learner/
     return max(candidates)[1] if candidates else None
 
 
@@ -36,13 +36,13 @@ def find_actor_file(checkpoint: str) -> str:
 
 def export(checkpoint: str, output: str, layer_sizes, layer_norm=True) -> int:
     state = torch.load(find_actor_file(checkpoint), map_location="cpu", weights_only=True)
-    actor_state = {key[len("actor."):]: value for key, value in state.items() if key.startswith("actor.")}
+    actor_state = {key[len("actor.") :]: value for key, value in state.items() if key.startswith("actor.")}
 
     actor = MaskedDiscreteFF(layer_sizes, layer_norm, torch.float32, torch.device("cpu"))
     try:
         actor.load_state_dict(actor_state)
     except RuntimeError as e:
-        raise SystemExit(f"The checkpoint does not match --layers {','.join(map(str, layer_sizes))}: {e}")
+        raise SystemExit(f"The checkpoint does not match --layers {','.join(map(str, layer_sizes))}: {e}") from None
 
     data = actor.export()
     with open(output, "wb") as f:

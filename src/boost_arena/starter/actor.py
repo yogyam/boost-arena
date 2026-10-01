@@ -16,9 +16,7 @@ from torch import nn
 
 from .. import interface
 from ..export import check_and_serialize, layers_from_sequential
-
-DISABLED_LOGIT = -1e10
-MIN_PROBABILITY = 1e-11
+from ..policy import DISABLED_LOGIT, MIN_PROBABILITY  # The same masking as the scorer uses
 
 
 def make_network(layer_sizes, layer_norm=True, dtype=torch.float32):
@@ -45,7 +43,7 @@ class MaskedDiscreteFF(Actor):
     def _split(self, obs_list):
         obs = obs_list if isinstance(obs_list, torch.Tensor) else torch.as_tensor(np.asarray(obs_list), dtype=self.dtype)
         obs = obs.to(self.device, dtype=self.dtype)
-        return obs[:, : interface.OBS_SIZE], obs[:, interface.OBS_SIZE:]
+        return obs[:, : interface.OBS_SIZE], obs[:, interface.OBS_SIZE :]
 
     def probabilities(self, obs_list):
         obs, mask = self._split(obs_list)
@@ -82,4 +80,5 @@ def make_actor_critic(layer_sizes, layer_norm, critic_layer_sizes):
         actor = MaskedDiscreteFF(layer_sizes, layer_norm, dtype, device)
         critic = BasicCritic(obs_space[1], critic_layer_sizes, dtype, device)
         return SeparateActorCritic(actor, critic)
+
     return factory

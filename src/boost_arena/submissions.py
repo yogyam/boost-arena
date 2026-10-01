@@ -12,6 +12,7 @@ private key, and only the scoring step runs the stranger's model.
 import datetime
 import gzip
 import hashlib
+import importlib.metadata
 import ipaddress
 import json
 import os
@@ -30,18 +31,18 @@ from .sealed import SealedFileError, is_sealed, open_sealed, seal
 MANIFEST_NAME = "submission.json"
 REPLAYS_SUFFIX = ".replays.json.gz"
 MODEL_SUFFIX = ".onnx"
-RECORDED_EPISODES = 5          # Per task. Every bot's replays are of the same situations
+RECORDED_EPISODES = 5  # Per task. Every bot's replays are of the same situations
 MAX_REPLAY_BYTES = 4 * 1024 * 1024
 MAX_REPLAY_FRAMES = 2000
 MAX_SEALED_BYTES = 64 * 1024 * 1024 + 4096
-DOWNLOAD_TIMEOUT = 30          # Per read, seconds
-DOWNLOAD_DEADLINE = 300        # For the whole file, seconds
+DOWNLOAD_TIMEOUT = 30  # Per read, seconds
+DOWNLOAD_DEADLINE = 300  # For the whole file, seconds
 MAX_REDIRECTS = 5
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 GITHUB_LOGIN_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$")
 MAX_NAME = 40
 MAX_TEXT = 300
-SCORINGS_PER_PERIOD = 3        # Scored submissions one person may have in a period, see RULES.md
+SCORINGS_PER_PERIOD = 3  # Scored submissions one person may have in a period, see RULES.md
 SCORING_PERIOD_DAYS = 30
 
 
@@ -65,20 +66,33 @@ class Manifest:
     name: str
     slug: str
     author: str
-    github: str               # The GitHub login that submits the bot; the sealed file is bound to it
+    github: str  # The GitHub login that submits the bot; the sealed file is bound to it
     model_url: str
     sealed_sha256: str
     model_sha256: str
     model_bytes: int
-    sealed_with: str          # The public key the model was sealed with
+    sealed_with: str  # The public key the model was sealed with
     interface_version: int
-    submitted: str            # Date, YYYY-MM-DD
+    submitted: str  # Date, YYYY-MM-DD
     description: str = ""
     homepage: str = ""
     public_model_url: str = ""  # If the entrant chooses to publish their model themselves
 
-    REQUIRED = frozenset({"name", "slug", "author", "github", "model_url", "sealed_sha256", "model_sha256", "model_bytes",
-                          "sealed_with", "interface_version", "submitted"})
+    REQUIRED = frozenset(
+        {
+            "name",
+            "slug",
+            "author",
+            "github",
+            "model_url",
+            "sealed_sha256",
+            "model_sha256",
+            "model_bytes",
+            "sealed_with",
+            "interface_version",
+            "submitted",
+        }
+    )
     OPTIONAL = frozenset({"description", "homepage", "public_model_url"})
 
     def to_dict(self):
@@ -99,8 +113,20 @@ class Manifest:
         return manifest
 
     def validate(self):
-        for field in ("name", "slug", "author", "github", "model_url", "sealed_sha256", "model_sha256", "sealed_with",
-                      "submitted", "description", "homepage", "public_model_url"):
+        for field in (
+            "name",
+            "slug",
+            "author",
+            "github",
+            "model_url",
+            "sealed_sha256",
+            "model_sha256",
+            "sealed_with",
+            "submitted",
+            "description",
+            "homepage",
+            "public_model_url",
+        ):
             if not isinstance(getattr(self, field), str):
                 raise SubmissionError(f"'{field}' must be text")
         if not (1 <= len(self.name) <= MAX_NAME) or not self.name.strip() or self.name != self.name.strip():
@@ -125,7 +151,9 @@ class Manifest:
         if type(self.model_bytes) is not int or not (0 < self.model_bytes <= MAX_SEALED_BYTES):
             raise SubmissionError("'model_bytes' must be a positive size within the file limit")
         if self.interface_version != interface.INTERFACE_VERSION:
-            raise SubmissionError(f"Interface version {self.interface_version} is not the current version {interface.INTERFACE_VERSION}")
+            raise SubmissionError(
+                f"Interface version {self.interface_version} is not the current version {interface.INTERFACE_VERSION}"
+            )
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", self.submitted):
             raise SubmissionError("'submitted' must be a date, YYYY-MM-DD")
 
@@ -137,14 +165,16 @@ def load_manifest(folder: str) -> Manifest:
     others = [name for name in os.listdir(folder) if name != MANIFEST_NAME and not name.startswith(".")]
     if others:
         raise SubmissionError(f"A submission folder may only hold {MANIFEST_NAME}, found: {', '.join(others)}")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError as e:
             raise SubmissionError(f"{MANIFEST_NAME} is not valid JSON: {e}") from None
     manifest = Manifest.from_dict(data)
     if manifest.slug != os.path.basename(os.path.normpath(folder)):
-        raise SubmissionError(f"The folder is named '{os.path.basename(os.path.normpath(folder))}' but the slug is '{manifest.slug}'")
+        raise SubmissionError(
+            f"The folder is named '{os.path.basename(os.path.normpath(folder))}' but the slug is '{manifest.slug}'"
+        )
     return manifest
 
 
@@ -157,15 +187,28 @@ def submission_folders(submissions_folder: str) -> list:
     """Every submission folder, by slug, skipping anything that is not named like one."""
     if not os.path.isdir(submissions_folder):
         return []
-    return [os.path.join(submissions_folder, slug) for slug in sorted(os.listdir(submissions_folder))
-            if SLUG_PATTERN.match(slug) and os.path.isdir(os.path.join(submissions_folder, slug))]
+    return [
+        os.path.join(submissions_folder, slug)
+        for slug in sorted(os.listdir(submissions_folder))
+        if SLUG_PATTERN.match(slug) and os.path.isdir(os.path.join(submissions_folder, slug))
+    ]
 
 
 # ---- Making a submission ----
 
-def make_submission(model_path: str, public_key: str, name: str, author: str, github: str, output_folder: str,
-                    description: str = "", homepage: str = "", public_model_url: str = "",
-                    model_url: str = "") -> Manifest:
+
+def make_submission(
+    model_path: str,
+    public_key: str,
+    name: str,
+    author: str,
+    github: str,
+    output_folder: str,
+    description: str = "",
+    homepage: str = "",
+    public_model_url: str = "",
+    model_url: str = "",
+) -> Manifest:
     """Seals the model and writes the sealed file and manifest into `output_folder/<slug>/`.
 
     `model_url` is where the entrant will host the sealed file. It can be filled in later.
@@ -185,13 +228,22 @@ def make_submission(model_path: str, public_key: str, name: str, author: str, gi
         raise SubmissionError(str(e)) from None
 
     manifest = Manifest(
-        name=name.strip(), slug=slug, author=author.strip(), github=github.strip(), model_url=model_url.strip(),
-        sealed_sha256=sha256(sealed), model_sha256=sha256(model), model_bytes=len(sealed),
-        sealed_with=public_key.strip(), interface_version=interface.INTERFACE_VERSION,
+        name=name.strip(),
+        slug=slug,
+        author=author.strip(),
+        github=github.strip(),
+        model_url=model_url.strip(),
+        sealed_sha256=sha256(sealed),
+        model_sha256=sha256(model),
+        model_bytes=len(sealed),
+        sealed_with=public_key.strip(),
+        interface_version=interface.INTERFACE_VERSION,
         submitted=datetime.date.today().isoformat(),
-        description=description.strip(), homepage=homepage.strip(), public_model_url=public_model_url.strip(),
+        description=description.strip(),
+        homepage=homepage.strip(),
+        public_model_url=public_model_url.strip(),
     )
-    manifest.validate()   # The same checks the pull request will run, so problems show up now
+    manifest.validate()  # The same checks the pull request will run, so problems show up now
 
     folder = os.path.join(output_folder, slug)
     os.makedirs(folder, exist_ok=True)
@@ -204,6 +256,7 @@ def make_submission(model_path: str, public_key: str, name: str, author: str, gi
 
 
 # ---- Fetching and checking ----
+
 
 def _is_public_host(host: str) -> bool:
     """Only public addresses are downloaded from: nothing on the machine or its network."""
@@ -233,7 +286,7 @@ def fetch(url: str, allow_local: bool = False) -> bytes:
     if url.startswith("file://"):
         if not allow_local:
             raise SubmissionError("Local files are not accepted, the sealed model must be at an https:// address")
-        with open(url[len("file://"):], "rb") as f:
+        with open(url[len("file://") :], "rb") as f:
             return f.read(MAX_SEALED_BYTES + 1)
 
     parsed = urllib.parse.urlparse(url)
@@ -282,8 +335,14 @@ def verify_submission(folder: str, public_key: str = None, allow_local: bool = F
         raise SubmissionError("The sealed file does not match the SHA-256 in the manifest")
     if not is_sealed(sealed):
         raise SubmissionError("The file at model_url is not a sealed model")
-    return {"slug": manifest.slug, "name": manifest.name, "author": manifest.author, "github": manifest.github,
-            "sealed_bytes": len(sealed), "sealed": sealed}
+    return {
+        "slug": manifest.slug,
+        "name": manifest.name,
+        "author": manifest.author,
+        "github": manifest.github,
+        "sealed_bytes": len(sealed),
+        "sealed": sealed,
+    }
 
 
 def check_not_a_copy(manifest: Manifest, submissions_folder: str) -> None:
@@ -292,7 +351,7 @@ def check_not_a_copy(manifest: Manifest, submissions_folder: str) -> None:
         if os.path.basename(other_folder) == manifest.slug:
             continue
         try:
-            with open(os.path.join(other_folder, MANIFEST_NAME), "r", encoding="utf-8") as f:
+            with open(os.path.join(other_folder, MANIFEST_NAME), encoding="utf-8") as f:
                 other = json.load(f)
         except (OSError, json.JSONDecodeError):
             continue
@@ -304,7 +363,9 @@ def check_not_a_copy(manifest: Manifest, submissions_folder: str) -> None:
             raise SubmissionError(f"The name '{manifest.name}' is already used by '{os.path.basename(other_folder)}'")
 
 
-def check_pull_request(folders: list, github_login: str, submissions_folder: str, results_folder: str, exempt: tuple = ()) -> None:
+def check_pull_request(
+    folders: list, github_login: str, submissions_folder: str, results_folder: str, exempt: tuple = ()
+) -> None:
     """What the pull request check knows that the manifest alone does not: who opened it, and what they already have.
 
     `exempt` logins are not held to the scoring limit: the project's own baseline bots (see RULES.md).
@@ -315,33 +376,38 @@ def check_pull_request(folders: list, github_login: str, submissions_folder: str
     for folder in folders:
         manifest = load_manifest(folder)
         if manifest.github.lower() != github_login.lower():
-            raise SubmissionError(f"{manifest.slug}: the manifest names '{manifest.github}' but the pull request is from '{github_login}'")
+            raise SubmissionError(
+                f"{manifest.slug}: the manifest names '{manifest.github}' but the pull request is from '{github_login}'"
+            )
         changed.add(manifest.slug)
     if github_login.lower() in {login.lower() for login in exempt}:
         return
 
     # The scorings this person already had in the period, plus the ones this pull request asks for
-    since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=SCORING_PERIOD_DAYS)
+    since = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=SCORING_PERIOD_DAYS)
     recent = 0
     if os.path.isdir(results_folder):
         for name in os.listdir(results_folder):
             if not name.endswith(".json") or name[:-5] in changed:
                 continue
             try:
-                with open(os.path.join(results_folder, name), "r", encoding="utf-8") as f:
+                with open(os.path.join(results_folder, name), encoding="utf-8") as f:
                     document = json.load(f)
                 login = document["manifest"]["github"]
-                scored_at = datetime.datetime.strptime(document["scored_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+                scored_at = datetime.datetime.strptime(document["scored_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.UTC)
             except (OSError, ValueError, KeyError, TypeError):
                 continue
             if login.lower() == github_login.lower() and scored_at >= since:
                 recent += 1
     if recent + len(changed) > SCORINGS_PER_PERIOD:
-        raise SubmissionError(f"'{github_login}' would have {recent + len(changed)} scored submissions in {SCORING_PERIOD_DAYS} days, "
-                              f"the limit is {SCORINGS_PER_PERIOD}")
+        raise SubmissionError(
+            f"'{github_login}' would have {recent + len(changed)} scored submissions in {SCORING_PERIOD_DAYS} days, "
+            f"the limit is {SCORINGS_PER_PERIOD}"
+        )
 
 
 # ---- Opening (needs the private key) ----
+
 
 def open_submission(folder: str, private_key: str, allow_local: bool = False) -> tuple:
     """Downloads, opens and checks one submission's model. Returns (manifest, model bytes, model description).
@@ -364,10 +430,23 @@ def open_submission(folder: str, private_key: str, allow_local: bool = False) ->
     return manifest, model, info
 
 
+def library_versions() -> dict:
+    """What the scoring ran on, so a result can be traced when a dependency changes."""
+    import platform
+
+    versions = {"python": platform.python_version(), "platform": platform.system().lower()}
+    for name in ("rocketsim", "onnxruntime", "numpy", "onnx"):
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            versions[name] = "unknown"
+    return versions
+
+
 def new_document(folder: str) -> dict:
     """The start of a result document for a submission folder."""
     return {
-        "scored_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "scored_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "benchmark_version": __version__,
         "manifest_sha256": manifest_digest(folder),
     }
@@ -404,6 +483,7 @@ def open_submissions(folders: list, private_key: str, models_folder: str, output
 
 # ---- Scoring (no key needed) ----
 
+
 def score_model(document: dict, model: bytes, episodes: int = None, on_progress=None) -> tuple:
     """Scores an opened model. `document` is the result document started when it was opened.
 
@@ -417,21 +497,29 @@ def score_model(document: dict, model: bytes, episodes: int = None, on_progress=
     try:
         policy = Policy(model)
         results = []
-        replays = {"slug": slug, "fps": FRAMES_PER_SECOND, "interface_version": interface.INTERFACE_VERSION,
-                   "task_set_version": TASK_SET_VERSION, "season": SEASON, "tasks": {}}
+        replays = {
+            "slug": slug,
+            "fps": FRAMES_PER_SECOND,
+            "interface_version": interface.INTERFACE_VERSION,
+            "task_set_version": TASK_SET_VERSION,
+            "season": SEASON,
+            "tasks": {},
+        }
         for key, task in TASKS.items():
-            result = run_task(policy, task, episodes=episodes or OFFICIAL_EPISODES, on_progress=on_progress,
-                              record_first=RECORDED_EPISODES)
+            result = run_task(
+                policy, task, episodes=episodes or OFFICIAL_EPISODES, on_progress=on_progress, record_first=RECORDED_EPISODES
+            )
             results.append(result)
             replays["tasks"][key] = result.replays
         document["results"] = [r.to_dict() for r in results]
         document["overall_score"] = overall_score(results)
         document["official"] = all(r.official for r in results)
         document["season"] = SEASON
+        document["libraries"] = library_versions()
     except InvalidModel as e:
         document["error"] = f"The model is not acceptable: {e}"
         return document, None
-    except Exception as e:   # The model is a stranger's; whatever it does, scoring must go on
+    except Exception as e:  # The model is a stranger's; whatever it does, scoring must go on
         document["error"] = f"The model failed while being scored ({type(e).__name__})"
         return document, None
     return document, replays
@@ -470,14 +558,18 @@ def submissions_to_score(submissions_folder: str, results_folder: str, replays_f
         slug = os.path.basename(folder)
         result_path = os.path.join(results_folder, f"{slug}.json")
         if os.path.isfile(result_path):
-            with open(result_path, "r", encoding="utf-8") as f:
+            with open(result_path, encoding="utf-8") as f:
                 try:
                     document = json.load(f)
                 except (json.JSONDecodeError, OSError):
                     document = {}
             up_to_date = document.get("manifest_sha256") == manifest_digest(folder)
             current_season = "error" in document or document.get("season") == SEASON
-            has_replays = replays_folder is None or "error" in document or os.path.isfile(os.path.join(replays_folder, slug + REPLAYS_SUFFIX))
+            has_replays = (
+                replays_folder is None
+                or "error" in document
+                or os.path.isfile(os.path.join(replays_folder, slug + REPLAYS_SUFFIX))
+            )
             if up_to_date and current_season and has_replays:
                 continue
         pending.append(folder)
@@ -485,6 +577,7 @@ def submissions_to_score(submissions_folder: str, results_folder: str, replays_f
 
 
 # ---- Checking what the scoring job produced ----
+
 
 def _whole_number(value) -> bool:
     return type(value) is int
@@ -498,7 +591,14 @@ def validate_replays_document(document: dict) -> None:
     """Checks a replays document from the scoring job: numbers of the right shape, nothing else."""
     from .tasks import TASKS
 
-    if not isinstance(document, dict) or set(document) != {"slug", "fps", "interface_version", "task_set_version", "season", "tasks"}:
+    if not isinstance(document, dict) or set(document) != {
+        "slug",
+        "fps",
+        "interface_version",
+        "task_set_version",
+        "season",
+        "tasks",
+    }:
         raise SubmissionError("A replays file must hold exactly slug, fps, interface_version, task_set_version, season and tasks")
     if not isinstance(document["slug"], str) or not SLUG_PATTERN.match(document["slug"]):
         raise SubmissionError("The replays slug is not valid")
@@ -551,8 +651,19 @@ def validate_result_document(document: dict, official_only: bool = False) -> Non
 
     if not isinstance(document, dict):
         raise SubmissionError("A result must be a JSON object")
-    allowed = {"scored_at", "benchmark_version", "manifest_sha256", "manifest", "model", "results",
-               "overall_score", "official", "season", "error"}
+    allowed = {
+        "scored_at",
+        "benchmark_version",
+        "manifest_sha256",
+        "manifest",
+        "model",
+        "results",
+        "overall_score",
+        "official",
+        "season",
+        "libraries",
+        "error",
+    }
     unknown = set(document) - allowed
     if unknown:
         raise SubmissionError(f"Unexpected fields in a result: {', '.join(sorted(unknown))}")
@@ -575,6 +686,14 @@ def validate_result_document(document: dict, official_only: bool = False) -> Non
         for field in ("input_name", "output_name"):
             if not isinstance(model[field], str) or len(model[field]) > 200:
                 raise SubmissionError(f"model '{field}' must be short text")
+    if "libraries" in document:
+        libraries = document["libraries"]
+        if (
+            not isinstance(libraries, dict)
+            or len(libraries) > 10
+            or any(not isinstance(k, str) or not isinstance(v, str) or len(k) > 40 or len(v) > 40 for k, v in libraries.items())
+        ):
+            raise SubmissionError("'libraries' must map short names to short versions")
     if "error" in document:
         if not isinstance(document["error"], str) or not (0 < len(document["error"]) <= 500):
             raise SubmissionError("'error' must be short text")
@@ -590,9 +709,26 @@ def validate_result_document(document: dict, official_only: bool = False) -> Non
         raise SubmissionError("'results' must hold every task once, in order")
     rates = []
     for result in results:
-        expected = {"task", "episodes", "successes", "conceded", "timeouts", "success_rate", "success_rate_low",
-                    "success_rate_high", "mean_seconds_to_score", "time_limit", "seed", "sampled", "official", "season",
-                    "interface_version", "task_set_version", "simulator_version", "benchmark_version"}
+        expected = {
+            "task",
+            "episodes",
+            "successes",
+            "conceded",
+            "timeouts",
+            "success_rate",
+            "success_rate_low",
+            "success_rate_high",
+            "mean_seconds_to_score",
+            "time_limit",
+            "seed",
+            "sampled",
+            "official",
+            "season",
+            "interface_version",
+            "task_set_version",
+            "simulator_version",
+            "benchmark_version",
+        }
         if set(result) != expected:
             raise SubmissionError(f"A task result has the wrong fields: {sorted(set(result) ^ expected)}")
         for field in ("episodes", "successes", "conceded", "timeouts", "seed", "season", "interface_version", "task_set_version"):
@@ -618,11 +754,18 @@ def validate_result_document(document: dict, official_only: bool = False) -> Non
             raise SubmissionError("The confidence interval does not contain the success rate")
         if result["time_limit"] != TASKS[result["task"]].time_limit and result["official"]:
             raise SubmissionError("An official result must use the task's time limit")
-        if (result["interface_version"], result["task_set_version"], result["simulator_version"]) != \
-                (interface.INTERFACE_VERSION, TASK_SET_VERSION, SIMULATOR_VERSION):
+        if (result["interface_version"], result["task_set_version"], result["simulator_version"]) != (
+            interface.INTERFACE_VERSION,
+            TASK_SET_VERSION,
+            SIMULATOR_VERSION,
+        ):
             raise SubmissionError("A task result is from another version of the benchmark")
-        if result["official"] and (result["episodes"] != OFFICIAL_EPISODES or result["seed"] != OFFICIAL_SEED
-                                   or not result["sampled"] or result["season"] != SEASON):
+        if result["official"] and (
+            result["episodes"] != OFFICIAL_EPISODES
+            or result["seed"] != OFFICIAL_SEED
+            or not result["sampled"]
+            or result["season"] != SEASON
+        ):
             raise SubmissionError("A result marked official was not made with the official settings")
         rates.append(result["success_rate"])
     if not _number(document["overall_score"]) or abs(document["overall_score"] - 100 * sum(rates) / len(rates)) > 1e-6:
@@ -638,10 +781,10 @@ def validate_result_document(document: dict, official_only: bool = False) -> Non
 def validate_published_result(path: str, submissions_folder: str, official_only: bool = True) -> dict:
     """A result file about to be published must belong to the submission it is named after,
     and describe the manifest as it is in the repository."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         document = json.load(f)
     validate_result_document(document, official_only=official_only)
-    slug = os.path.basename(path)[:-len(".json")]
+    slug = os.path.basename(path)[: -len(".json")]
     if not SLUG_PATTERN.match(slug):
         raise SubmissionError("A result file must be named after a slug")
     folder = os.path.join(submissions_folder, slug)
@@ -650,7 +793,7 @@ def validate_published_result(path: str, submissions_folder: str, official_only:
     if document["manifest_sha256"] != manifest_digest(folder):
         raise SubmissionError(f"The result for '{slug}' is not for the manifest in the repository")
     if "manifest" in document:
-        with open(os.path.join(folder, MANIFEST_NAME), "r", encoding="utf-8") as f:
+        with open(os.path.join(folder, MANIFEST_NAME), encoding="utf-8") as f:
             if document["manifest"] != json.load(f):
                 raise SubmissionError(f"The result for '{slug}' holds a manifest that differs from the repository's")
     return document
@@ -662,7 +805,7 @@ def validate_published_replays(path: str, submissions_folder: str) -> dict:
     document = read_replays(path)
     validate_replays_document(document)
     name = os.path.basename(path)
-    if not name.endswith(REPLAYS_SUFFIX) or name[:-len(REPLAYS_SUFFIX)] != document["slug"]:
+    if not name.endswith(REPLAYS_SUFFIX) or name[: -len(REPLAYS_SUFFIX)] != document["slug"]:
         raise SubmissionError("A replays file must be named after its slug")
     if not os.path.isdir(os.path.join(submissions_folder, document["slug"])):
         raise SubmissionError(f"There is no submission '{document['slug']}'")

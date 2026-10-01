@@ -1,5 +1,6 @@
 """Runs games in the RocketSim simulator under the Boost Arena rules."""
 
+import importlib.metadata
 import os
 
 import numpy as np
@@ -8,7 +9,8 @@ import RocketSim as rs
 from . import interface
 from .interface import BLUE, ORANGE, BallInfo, CarInfo
 
-SIMULATOR_VERSION = "2.2.1"
+# The version of the installed simulator, stamped into every result. pyproject.toml pins it.
+SIMULATOR_VERSION = importlib.metadata.version("rocketsim")
 
 # Physics settings, part of the rules
 # Boost drains so slowly that a full tank outlasts any episode: bots do not manage boost in version 1
@@ -29,9 +31,7 @@ def _collision_mesh_folder():
 
     folder = os.path.join(os.path.dirname(rlgym_sim.__file__), "collision_meshes")
     if not os.path.isdir(os.path.join(folder, "soccar")):
-        raise RuntimeError(
-            "Could not find the arena collision files. Install them with: pip install 'rlgym-rocket-league[sim]'"
-        )
+        raise RuntimeError("Could not find the arena collision files. Install them with: pip install 'rlgym-rocket-league[sim]'")
     return folder
 
 
@@ -43,7 +43,7 @@ def init():
             rs.init(_collision_mesh_folder())
         except RuntimeError as e:
             if "inited" not in str(e).lower():
-                raise   # Something else, like a missing folder
+                raise  # Something else, like a missing folder
             # Another part of the program, such as an RLGym engine, loaded the arena already
         _initialized = True
 
@@ -69,7 +69,7 @@ def ball_path(pos, vel, seconds: float, ang_vel=(0, 0, 0)):
     global _ball_only_arena
     init()
     if _ball_only_arena is None:
-        _ball_only_arena = rs.Arena(rs.GameMode.SOCCAR)   # Making an arena is slow, so one is kept
+        _ball_only_arena = rs.Arena(rs.GameMode.SOCCAR)  # Making an arena is slow, so one is kept
     arena = _ball_only_arena
 
     state = rs.BallState()
@@ -165,21 +165,23 @@ class Game:
         infos = []
         for i, car in enumerate(self.cars):
             state = car.get_state()
-            infos.append(CarInfo(
-                team=int(car.team),
-                pos=_vec(state.pos),
-                vel=_vec(state.vel),
-                ang_vel=_vec(state.ang_vel),
-                forward=_vec(state.rot_mat.forward),
-                up=_vec(state.rot_mat.up),
-                boost=state.boost,
-                is_on_ground=state.is_on_ground,
-                has_flip_or_jump=state.has_flip_or_jump(),
-                is_demoed=state.is_demoed,
-                has_world_contact=state.has_world_contact,
-                world_contact_normal=_vec(state.world_contact_normal),
-                prev_action=self.prev_actions[i].copy(),
-            ))
+            infos.append(
+                CarInfo(
+                    team=int(car.team),
+                    pos=_vec(state.pos),
+                    vel=_vec(state.vel),
+                    ang_vel=_vec(state.ang_vel),
+                    forward=_vec(state.rot_mat.forward),
+                    up=_vec(state.rot_mat.up),
+                    boost=state.boost,
+                    is_on_ground=state.is_on_ground,
+                    has_flip_or_jump=state.has_flip_or_jump(),
+                    is_demoed=state.is_demoed,
+                    has_world_contact=state.has_world_contact,
+                    world_contact_normal=_vec(state.world_contact_normal),
+                    prev_action=self.prev_actions[i].copy(),
+                )
+            )
         return infos
 
     def observe(self):

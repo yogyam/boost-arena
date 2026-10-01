@@ -15,11 +15,18 @@ from .duels import DUEL_KINDS, DUEL_SET_VERSION, OFFICIAL_EPISODES, run_pair
 from .policy import InvalidModel, Policy
 from .runner import FRAMES_PER_SECOND, OFFICIAL_SEED, SEASON
 from .submissions import (
-    MAX_REPLAY_FRAMES, MODEL_SUFFIX, RECORDED_EPISODES, REPLAYS_SUFFIX, SLUG_PATTERN, SubmissionError, manifest_digest,
-    open_submission, submission_folders,
+    MAX_REPLAY_FRAMES,
+    MODEL_SUFFIX,
+    RECORDED_EPISODES,
+    REPLAYS_SUFFIX,
+    SLUG_PATTERN,
+    SubmissionError,
+    manifest_digest,
+    open_submission,
+    submission_folders,
 )
 
-DUEL_REPLAYS = 2   # Per kind and direction
+DUEL_REPLAYS = 2  # Per kind and direction
 
 
 def pair_name(a: str, b: str) -> str:
@@ -35,7 +42,7 @@ def scored_bots(submissions_folder: str, results_folder: str) -> list:
         result_path = os.path.join(results_folder, f"{slug}.json")
         if not os.path.isfile(result_path):
             continue
-        with open(result_path, "r", encoding="utf-8") as f:
+        with open(result_path, encoding="utf-8") as f:
             try:
                 document = json.load(f)
             except (json.JSONDecodeError, OSError):
@@ -51,23 +58,34 @@ def pairs_to_play(submissions_folder: str, results_folder: str, duels_folder: st
     digests = {slug: manifest_digest(os.path.join(submissions_folder, slug)) for slug in bots}
     pending = []
     for i, a in enumerate(bots):
-        for b in bots[i + 1:]:
+        for b in bots[i + 1 :]:
             path = os.path.join(duels_folder, pair_name(a, b) + ".json")
             if os.path.isfile(path):
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     try:
                         existing = json.load(f)
                     except (json.JSONDecodeError, OSError):
                         existing = {}
-                if existing.get("a_manifest_sha256") == digests[a] and existing.get("b_manifest_sha256") == digests[b] \
-                        and existing.get("duel_set_version") == DUEL_SET_VERSION and existing.get("season") == SEASON:
+                if (
+                    existing.get("a_manifest_sha256") == digests[a]
+                    and existing.get("b_manifest_sha256") == digests[b]
+                    and existing.get("duel_set_version") == DUEL_SET_VERSION
+                    and existing.get("season") == SEASON
+                ):
                     continue
             pending.append((a, b))
     return pending
 
 
-def open_bots_for_duels(submissions_folder: str, results_folder: str, duels_folder: str, private_key: str,
-                        models_folder: str, max_pairs: int, allow_local: bool = False) -> list:
+def open_bots_for_duels(
+    submissions_folder: str,
+    results_folder: str,
+    duels_folder: str,
+    private_key: str,
+    models_folder: str,
+    max_pairs: int,
+    allow_local: bool = False,
+) -> list:
     """Opens the models of every bot in the pairs about to be played into `models_folder/<slug>.onnx`,
     unless already there. A bot that cannot be opened is reported and its pairs are skipped."""
     os.makedirs(models_folder, exist_ok=True)
@@ -105,19 +123,27 @@ def play_pair(submissions_folder: str, a: str, b: str, policies: dict, episodes:
     a, b = sorted((a, b))
     try:
         result = run_pair(policies[a], policies[b], episodes=episodes or OFFICIAL_EPISODES, record_first=DUEL_REPLAYS)
-    except Exception as e:   # A stranger's model; whatever it does, the service goes on
+    except Exception as e:  # A stranger's model; whatever it does, the service goes on
         raise SubmissionError(f"{a} v {b}: a model failed during the duel ({type(e).__name__})") from None
     replays = result.pop("replays")
     document = {
-        "a": a, "b": b,
+        "a": a,
+        "b": b,
         "a_manifest_sha256": manifest_digest(os.path.join(submissions_folder, a)),
         "b_manifest_sha256": manifest_digest(os.path.join(submissions_folder, b)),
-        "played_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "played_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "benchmark_version": __version__,
         **result,
     }
-    replay_document = {"pair": pair_name(a, b), "a": a, "b": b, "fps": FRAMES_PER_SECOND, "duel_set_version": DUEL_SET_VERSION,
-                       "season": SEASON, "kinds": replays}
+    replay_document = {
+        "pair": pair_name(a, b),
+        "a": a,
+        "b": b,
+        "fps": FRAMES_PER_SECOND,
+        "duel_set_version": DUEL_SET_VERSION,
+        "season": SEASON,
+        "kinds": replays,
+    }
     return document, replay_document
 
 
@@ -145,8 +171,22 @@ def validate_duel_document(document: dict, official_only: bool = False) -> None:
     numbers that agree with each other."""
     if not isinstance(document, dict):
         raise SubmissionError("A duel result must be a JSON object")
-    allowed = {"a", "b", "a_manifest_sha256", "b_manifest_sha256", "played_at", "benchmark_version", "episodes_per_direction",
-               "seed", "season", "duel_set_version", "official", "kinds", "a_points", "b_points"}
+    allowed = {
+        "a",
+        "b",
+        "a_manifest_sha256",
+        "b_manifest_sha256",
+        "played_at",
+        "benchmark_version",
+        "episodes_per_direction",
+        "seed",
+        "season",
+        "duel_set_version",
+        "official",
+        "kinds",
+        "a_points",
+        "b_points",
+    }
     if set(document) != allowed:
         raise SubmissionError(f"A duel result has the wrong fields: {sorted(set(document) ^ allowed)}")
     _check_slug(document["a"])
@@ -164,7 +204,11 @@ def validate_duel_document(document: dict, official_only: bool = False) -> None:
             raise SubmissionError(f"'{field}' must be a whole number")
     if type(document["official"]) is not bool:
         raise SubmissionError("'official' must be true or false")
-    if document["episodes_per_direction"] == 0 or document["duel_set_version"] != DUEL_SET_VERSION or document["season"] != SEASON:
+    if (
+        document["episodes_per_direction"] == 0
+        or document["duel_set_version"] != DUEL_SET_VERSION
+        or document["season"] != SEASON
+    ):
         raise SubmissionError("The duel is from another duel set or season")
     if document["official"] != (document["episodes_per_direction"] == OFFICIAL_EPISODES and document["seed"] == OFFICIAL_SEED):
         raise SubmissionError("'official' does not match the duel's settings")
@@ -200,7 +244,7 @@ def validate_duel_document(document: dict, official_only: bool = False) -> None:
 def validate_published_duel(path: str, submissions_folder: str, results_folder: str, official_only: bool = True) -> dict:
     """A duel file about to be published must be named after its pair and describe both bots as
     they are scored in the repository."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         document = json.load(f)
     validate_duel_document(document, official_only=official_only)
     if os.path.basename(path) != pair_name(document["a"], document["b"]) + ".json":
@@ -248,7 +292,9 @@ def validate_duel_replays_document(document: dict) -> None:
                 if not isinstance(frame, dict) or set(frame) != {"ball", "cars"} or len(frame["cars"]) != 2:
                     raise SubmissionError("A duel replay frame has the wrong shape")
                 for values in [frame["ball"]] + frame["cars"]:
-                    if not isinstance(values, list) or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 1e5 for v in values):
+                    if not isinstance(values, list) or not all(
+                        isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 1e5 for v in values
+                    ):
                         raise SubmissionError("A duel replay frame holds something that is not a sensible number")
 
 
@@ -260,7 +306,7 @@ def duel_points(duels_folder: str) -> dict:
     for name in sorted(os.listdir(duels_folder)):
         if not name.endswith(".json"):
             continue
-        with open(os.path.join(duels_folder, name), "r", encoding="utf-8") as f:
+        with open(os.path.join(duels_folder, name), encoding="utf-8") as f:
             document = json.load(f)
         points[(document["a"], document["b"])] = points.get((document["a"], document["b"]), 0) + document["a_points"]
         points[(document["b"], document["a"])] = points.get((document["b"], document["a"]), 0) + document["b_points"]

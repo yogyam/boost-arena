@@ -17,14 +17,13 @@ import RocketSim as rs
 
 from . import interface
 
-GOAL_LINE_Y = 5120.0
-LINE_Y = GOAL_LINE_Y - 260.0   # Where the keeper patrols
-REACH_X = 760.0                # It does not follow the ball past the posts
+LINE_Y = interface.FIELD_HALF_LENGTH - 260.0  # Where the keeper patrols
+REACH_X = 760.0  # It does not follow the ball past the posts
 
 START_POS = (0.0, LINE_Y, 17.0)
-START_YAW = 0.0                # Facing +X, side on to a shot coming from -Y
+START_YAW = 0.0  # Facing +X, side on to a shot coming from -Y
 
-GRAVITY = 650.0
+GRAVITY = interface.GRAVITY
 STEP_SECONDS = interface.TICK_SKIP / interface.TICK_RATE
 
 # The keeper's car is flat, so it has to meet the ball at the right height, not just be under it.
@@ -37,7 +36,7 @@ GROUND_BLOCK_HEIGHT = 125.0
 JUMPS = {
     "tap": (0,),
     "held": (0, 1, 2),
-    "double": (0, 1, 2, 4),   # Released on decision 3, so pressing again is a second jump
+    "double": (0, 1, 2, 4),  # Released on decision 3, so pressing again is a second jump
 }
 
 _profiles = None
@@ -63,7 +62,7 @@ def _jump_profiles():
                 game.step([0], scripted={0: pressed})
                 heights.append(float(game.car_infos()[0].pos[2]))
             heights = np.array(heights)
-            _profiles[name] = heights[: int(heights.argmax()) + 1]   # Only the way up
+            _profiles[name] = heights[: int(heights.argmax()) + 1]  # Only the way up
     return _profiles
 
 
@@ -78,8 +77,8 @@ class Keeper:
         self.reset()
 
     def reset(self):
-        self._jump = None       # The jump in progress, None while on the ground
-        self._decision = 0      # Decisions since it took off
+        self._jump = None  # The jump in progress, None while on the ground
+        self._decision = 0  # Decisions since it took off
 
     def _plan_jump(self, height, seconds_away):
         """The jump that meets a ball arriving at `height`, if now is the moment to take off."""
@@ -112,7 +111,7 @@ class Keeper:
         target_x = _clamp(target_x, -REACH_X, REACH_X)
 
         forward = np.array([car.forward[0], car.forward[1]], dtype=np.float64)
-        along = 1.0 if forward[0] >= 0 else -1.0   # Which way along the line the nose points
+        along = 1.0 if forward[0] >= 0 else -1.0  # Which way along the line the nose points
 
         if self._jump is not None:
             self._decision += 1

@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: "Boost Arena: an open, task-based benchmark for car-football bots"
+message: "If you use Boost Arena or its results, please cite it as below."
+type: software
+authors:
+  - family-names: Mehrotra
+    given-names: Yogya
+repository-code: "https://github.com/yogyam/boost-arena"
+url: "https://yogyam.github.io/boost-arena/"
+license: MIT
+version: 0.1.0
+date-released: "2026-10-01"
+keywords:
+  - benchmark
+  - reinforcement learning
+  - RocketSim
+  - RLGym

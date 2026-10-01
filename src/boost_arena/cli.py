@@ -13,8 +13,8 @@ from .tasks import TASKS
 
 PUBLIC_KEY_FILE = "PUBLIC_KEY"
 PRIVATE_KEY_VARIABLE = "BOOST_ARENA_PRIVATE_KEY"
-SCORING_TIMEOUT = 45 * 60     # Seconds for one submission's tasks, or one duel pair, in its own process
-MEMORY_LIMIT_GB = 8           # For that process, where the operating system can enforce it
+SCORING_TIMEOUT = 45 * 60  # Seconds for one submission's tasks, or one duel pair, in its own process
+MEMORY_LIMIT_GB = 8  # For that process, where the operating system can enforce it
 
 
 def _private_key():
@@ -28,7 +28,7 @@ def _private_key():
 def _read_public_key(path):
     if not os.path.isfile(path):
         raise SystemExit(f"No public key file at {path}. Pass --public-key, or run this from a clone of the repository")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return f.read().strip()
 
 
@@ -36,6 +36,7 @@ def _progress(name):
     def show(done, total):
         if sys.stderr.isatty() and (done % 50 == 0 or done == total):
             print(f"\r{name}: {done}/{total} episodes", end="", file=sys.stderr, flush=True)
+
     return show
 
 
@@ -87,10 +88,17 @@ def _cmd_score(args):
             if sys.stderr.isatty() and (done % 20 == 0 or done == total):
                 print(f"\r{name}: {done}/{total} episodes", end="", file=sys.stderr, flush=True)
 
-        results.append(run_task(
-            policy, task, episodes=episodes, seed=args.seed, sampled=not args.most_likely,
-            time_limit=args.time_limit, on_progress=progress,
-        ))
+        results.append(
+            run_task(
+                policy,
+                task,
+                episodes=episodes,
+                seed=args.seed,
+                sampled=not args.most_likely,
+                time_limit=args.time_limit,
+                on_progress=progress,
+            )
+        )
         if sys.stderr.isatty():
             print("\r" + " " * 60 + "\r", end="", file=sys.stderr)
 
@@ -127,9 +135,16 @@ def _cmd_submit(args):
 
     try:
         manifest = make_submission(
-            args.model, _read_public_key(args.public_key), args.name, args.author, args.github, args.output,
-            description=args.description or "", homepage=args.homepage or "",
-            public_model_url=args.public_model_url or "", model_url=args.model_url or "",
+            args.model,
+            _read_public_key(args.public_key),
+            args.name,
+            args.author,
+            args.github,
+            args.output,
+            description=args.description or "",
+            homepage=args.homepage or "",
+            public_model_url=args.public_model_url or "",
+            model_url=args.model_url or "",
         )
     except SubmissionError as e:
         print(f"Not accepted: {e}")
@@ -137,7 +152,9 @@ def _cmd_submit(args):
 
     folder = os.path.join(args.output, manifest.slug)
     print(f"Wrote {folder}/")
-    print(f"  {manifest.slug}.sealed    the sealed model, {manifest.model_bytes / 1e6:.1f} MB. Put this somewhere public over https")
+    print(
+        f"  {manifest.slug}.sealed    the sealed model, {manifest.model_bytes / 1e6:.1f} MB. Put this somewhere public over https"
+    )
     print(f"  submission.json   the manifest. Copy it to submissions/{manifest.slug}/ in a pull request")
     if not manifest.model_url:
         print("Then fill in model_url in submission.json with the address of the sealed file.")
@@ -151,8 +168,12 @@ def _cmd_verify_submission(args):
     failed = 0
     for folder in args.folder:
         try:
-            info = verify_submission(folder, public_key=public_key, allow_local=args.allow_local, submissions_folder=args.submissions)
-            print(f"OK   {folder}: {info['name']} by {info['author']} ({info['github']}), sealed model {info['sealed_bytes'] / 1e6:.1f} MB")
+            info = verify_submission(
+                folder, public_key=public_key, allow_local=args.allow_local, submissions_folder=args.submissions
+            )
+            print(
+                f"OK   {folder}: {info['name']} by {info['author']} ({info['github']}), sealed model {info['sealed_bytes'] / 1e6:.1f} MB"
+            )
         except SubmissionError as e:
             print(f"FAIL {folder}: {e}")
             failed += 1
@@ -187,8 +208,9 @@ def _cmd_open_submissions(args):
                 if name.endswith(".json"):
                     with open(os.path.join(folder, name), "rb") as src, open(os.path.join(merged, name), "wb") as dst:
                         dst.write(src.read())
-        skipped = open_bots_for_duels(args.submissions, merged, args.duels, private_key, args.models, args.max_pairs,
-                                      allow_local=args.allow_local)
+        skipped = open_bots_for_duels(
+            args.submissions, merged, args.duels, private_key, args.models, args.max_pairs, allow_local=args.allow_local
+        )
         if skipped:
             print(f"Could not open for duels: {', '.join(skipped)}")
     return 0
@@ -196,13 +218,15 @@ def _cmd_open_submissions(args):
 
 def _run_isolated(arguments: list, output_name: str) -> str:
     """Runs one scoring job in its own process with a time and memory limit. Returns an error text, or None."""
+
     def limit_memory():
         try:
             import resource
-            limit = MEMORY_LIMIT_GB * 1024 ** 3
+
+            limit = MEMORY_LIMIT_GB * 1024**3
             resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
         except Exception:
-            pass   # Not every operating system enforces this; the shape and timing checks still apply
+            pass  # Not every operating system enforces this; the shape and timing checks still apply
 
     command = [sys.executable, "-m", "boost_arena.cli", "run-opened"] + arguments
     try:
@@ -220,14 +244,16 @@ def _cmd_process_submissions(args):
     if not os.path.isdir(args.models):
         print("No opened models")
         return 0
-    slugs = sorted(name[:-len(MODEL_SUFFIX)] for name in os.listdir(args.models) if name.endswith(MODEL_SUFFIX))
+    slugs = sorted(name[: -len(MODEL_SUFFIX)] for name in os.listdir(args.models) if name.endswith(MODEL_SUFFIX))
     if args.only:
         slugs = [slug for slug in slugs if slug in args.only]
     os.makedirs(args.output, exist_ok=True)
     scored = 0
     for slug in slugs:
         # Bots opened only for duels already have a result and are not scored again
-        if not os.path.isfile(os.path.join(args.models, slug + ".json")) or os.path.isfile(os.path.join(args.output, slug + ".json")):
+        if not os.path.isfile(os.path.join(args.models, slug + ".json")) or os.path.isfile(
+            os.path.join(args.output, slug + ".json")
+        ):
             continue
         started = time.time()
         arguments = ["--models", args.models, "--output", args.output, "--slug", slug]
@@ -236,7 +262,7 @@ def _cmd_process_submissions(args):
         error = _run_isolated(arguments, slug)
         result_path = os.path.join(args.output, slug + ".json")
         if error or not os.path.isfile(result_path):
-            with open(os.path.join(args.models, slug + ".json"), "r", encoding="utf-8") as f:
+            with open(os.path.join(args.models, slug + ".json"), encoding="utf-8") as f:
                 document = json.load(f)
             document["error"] = error or f"The scoring process for {slug} left no result"
             with open(result_path, "w", encoding="utf-8") as f:
@@ -244,7 +270,7 @@ def _cmd_process_submissions(args):
                 f.write("\n")
             print(f"{slug}: not scored, {document['error']}")
             continue
-        with open(result_path, "r", encoding="utf-8") as f:
+        with open(result_path, encoding="utf-8") as f:
             document = json.load(f)
         if "error" in document:
             print(f"{slug}: not scored, {document['error']}")
@@ -261,7 +287,7 @@ def _cmd_run_opened(args):
     from .submissions import MODEL_SUFFIX, REPLAYS_SUFFIX, SubmissionError, score_model, write_replays
 
     if args.slug:
-        with open(os.path.join(args.models, args.slug + ".json"), "r", encoding="utf-8") as f:
+        with open(os.path.join(args.models, args.slug + ".json"), encoding="utf-8") as f:
             document = json.load(f)
         with open(os.path.join(args.models, args.slug + MODEL_SUFFIX), "rb") as f:
             model = f.read()
@@ -281,7 +307,7 @@ def _cmd_run_opened(args):
         document, replays = play_pair(args.submissions, a, b, policies, episodes=args.episodes)
     except SubmissionError as e:
         print(f"{a} v {b}: not played, {e}")
-        return 0   # Nothing written: the pair stays pending
+        return 0  # Nothing written: the pair stays pending
     name = document["a"] + "__" + document["b"]
     os.makedirs(os.path.join(args.output, "duels"), exist_ok=True)
     with open(os.path.join(args.output, "duels", name + ".json"), "w", encoding="utf-8") as f:
@@ -304,8 +330,10 @@ def _cmd_duel(args):
     result = run_pair(a, b, episodes=args.episodes)
     name_a, name_b = os.path.basename(args.a), os.path.basename(args.b)
     for kind, tally in result["kinds"].items():
-        print(f"{DUEL_KINDS[kind]:14s} {name_a} {tally['a_points']} - {tally['b_points']} {name_b}"
-              + (f", {tally['draws']} draws" if tally["draws"] else ""))
+        print(
+            f"{DUEL_KINDS[kind]:14s} {name_a} {tally['a_points']} - {tally['b_points']} {name_b}"
+            + (f", {tally['draws']} draws" if tally["draws"] else "")
+        )
     print(f"{'Total':14s} {name_a} {result['a_points']} - {result['b_points']} {name_b}")
     print(f"{args.episodes} episodes per direction, {time.time() - started:.0f} s")
     return 0
@@ -375,7 +403,9 @@ def _cmd_keygen(args):
     private, public = generate_key_pair()
     print("Public key (commit it as PUBLIC_KEY):")
     print(public)
-    print(f"\nPrivate key (store it as the {PRIVATE_KEY_VARIABLE} secret and keep a copy somewhere safe, never in the repository):")
+    print(
+        f"\nPrivate key (store it as the {PRIVATE_KEY_VARIABLE} secret and keep a copy somewhere safe, never in the repository):"
+    )
     print(private)
     return 0
 
@@ -401,8 +431,11 @@ def main(argv=None):
     score.add_argument("--task", action="append", choices=list(TASKS), help="Task to run, repeat for several (default: all)")
     score.add_argument("--episodes", type=int, default=None, help="Episodes per task (default: 1000)")
     score.add_argument("--seed", type=int, default=0)
-    score.add_argument("--most-likely", action="store_true",
-                       help="Always take the most likely action, instead of drawing actions at random as in training")
+    score.add_argument(
+        "--most-likely",
+        action="store_true",
+        help="Always take the most likely action, instead of drawing actions at random as in training",
+    )
     score.add_argument("--time-limit", type=float, default=None, help="Change the time limit of every task")
     score.add_argument("--output", help="Also save the results to this JSON file")
     score.set_defaults(run=_cmd_score)
@@ -416,7 +449,9 @@ def main(argv=None):
     submit.add_argument("--homepage", help="An https:// link about the bot, optional")
     submit.add_argument("--public-model-url", help="Where you publish the model yourself, if you do, optional")
     submit.add_argument("--model-url", help="Where the sealed file will be hosted, if you already know")
-    submit.add_argument("--public-key", default=PUBLIC_KEY_FILE, help=f"The project's public key file (default: {PUBLIC_KEY_FILE})")
+    submit.add_argument(
+        "--public-key", default=PUBLIC_KEY_FILE, help=f"The project's public key file (default: {PUBLIC_KEY_FILE})"
+    )
     submit.add_argument("--output", default="my_submission", help="Folder to write into (default: my_submission)")
     submit.set_defaults(run=_cmd_submit)
 
@@ -464,7 +499,9 @@ def main(argv=None):
     duel.add_argument("--episodes", type=int, default=100, help="Per direction of each duel kind (official: 200)")
     duel.set_defaults(run=_cmd_duel)
 
-    process_duels = commands.add_parser("process-duels", help="Play the duels whose bots were opened, each pair in its own process (no key needed)")
+    process_duels = commands.add_parser(
+        "process-duels", help="Play the duels whose bots were opened, each pair in its own process (no key needed)"
+    )
     process_duels.add_argument("--submissions", default="submissions")
     process_duels.add_argument("--results", default="results", help="Published results plus the ones just produced")
     process_duels.add_argument("--duels", default="duels")
@@ -474,7 +511,9 @@ def main(argv=None):
     process_duels.add_argument("--episodes", type=int, default=None, help=argparse.SUPPRESS)
     process_duels.set_defaults(run=_cmd_process_duels)
 
-    validate = commands.add_parser("validate-results", help="Check result, replay and duel files against the repository before they are published")
+    validate = commands.add_parser(
+        "validate-results", help="Check result, replay and duel files against the repository before they are published"
+    )
     validate.add_argument("file", nargs="+")
     validate.add_argument("--submissions", default="submissions")
     validate.add_argument("--results", default="results")

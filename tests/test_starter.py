@@ -10,7 +10,7 @@ from boost_arena import interface
 from boost_arena.policy import Policy
 from boost_arena.starter import env as kit
 from boost_arena.starter.actor import MaskedDiscreteFF
-from boost_arena.starter.curriculum import PHASES, ALL_REWARDS, phase_for
+from boost_arena.starter.curriculum import ALL_REWARDS, PHASES, phase_for
 
 
 def make_env(situation_rng_seed=0):
@@ -22,8 +22,10 @@ def make_env(situation_rng_seed=0):
 
     progress = ProgressReader(path=None)
     return RLGym(
-        state_mutator=MutatorSequence(FixedTeamSizeMutator(blue_size=1, orange_size=1),
-                                      kit.SituationMutator(progress, np.random.default_rng(situation_rng_seed))),
+        state_mutator=MutatorSequence(
+            FixedTeamSizeMutator(blue_size=1, orange_size=1),
+            kit.SituationMutator(progress, np.random.default_rng(situation_rng_seed)),
+        ),
         obs_builder=kit.ArenaObs(),
         action_parser=kit.ArenaAction(),
         reward_fn=kit.CurriculumReward(progress),
@@ -37,11 +39,11 @@ def test_observation_has_the_rulebook_shape_and_a_mask():
     env = make_env()
     obs = env.reset()
     assert len(obs) == 2
-    for agent, values in obs.items():
+    for values in obs.values():
         assert values.shape == (interface.OBS_SIZE + interface.NUM_ACTIONS,)
-        mask = values[interface.OBS_SIZE:]
+        mask = values[interface.OBS_SIZE :]
         assert set(np.unique(mask)) <= {0.0, 1.0} and mask.sum() > 0
-        assert values[9:17].tolist() == [0.0] * 8   # No previous action at the start
+        assert values[9:17].tolist() == [0.0] * 8  # No previous action at the start
 
 
 def test_previous_action_and_timing_follow_the_rulebook():
@@ -53,7 +55,9 @@ def test_previous_action_and_timing_follow_the_rulebook():
     for rows in engine_actions.values():
         assert rows.shape == (interface.TICK_SKIP, 8)
         np.testing.assert_array_equal(rows[: interface.ACTION_DELAY], np.zeros((interface.ACTION_DELAY, 8)))
-        np.testing.assert_array_equal(rows[interface.ACTION_DELAY:], np.tile(interface.ACTION_TABLE[23], (interface.TICK_SKIP - interface.ACTION_DELAY, 1)))
+        np.testing.assert_array_equal(
+            rows[interface.ACTION_DELAY :], np.tile(interface.ACTION_TABLE[23], (interface.TICK_SKIP - interface.ACTION_DELAY, 1))
+        )
 
     obs, *_ = env.step(actions)
     for values in obs.values():
@@ -73,7 +77,7 @@ def test_physics_settings_match_the_rules():
 
 def test_every_phase_situation_can_be_set_up():
     for phase in PHASES:
-        for name in phase.situations:
+        for _ in phase.situations:
             progress = type("P", (), {"phase": phase})()
             mutator = kit.SituationMutator(progress, np.random.default_rng(1))
             env = make_env()

@@ -121,7 +121,7 @@ def load_results(results_folder: str) -> list:
     for name in sorted(os.listdir(results_folder)):
         if not name.endswith(".json"):
             continue
-        with open(os.path.join(results_folder, name), "r", encoding="utf-8") as f:
+        with open(os.path.join(results_folder, name), encoding="utf-8") as f:
             document = json.load(f)
         document["_slug"] = name[:-5]
         documents.append(document)
@@ -133,7 +133,7 @@ def load_duels(duels_folder: str) -> list:
     if duels_folder and os.path.isdir(duels_folder):
         for name in sorted(os.listdir(duels_folder)):
             if name.endswith(".json"):
-                with open(os.path.join(duels_folder, name), "r", encoding="utf-8") as f:
+                with open(os.path.join(duels_folder, name), encoding="utf-8") as f:
                     duels.append(json.load(f))
     return duels
 
@@ -156,9 +156,14 @@ def _bar(fraction: float, label: str, overall: bool = False, title: str = "") ->
 
 
 def _tiles(items: list) -> str:
-    return '<div class="tiles">' + "".join(
-        f'<div class="tile"><div class="label">{_e(label)}</div><div class="value">{_e(value)}</div></div>' for label, value in items
-    ) + "</div>"
+    return (
+        '<div class="tiles">'
+        + "".join(
+            f'<div class="tile"><div class="label">{_e(label)}</div><div class="value">{_e(value)}</div></div>'
+            for label, value in items
+        )
+        + "</div>"
+    )
 
 
 def _overall_chart(scored: list) -> str:
@@ -180,9 +185,13 @@ def _overall_chart(scored: list) -> str:
         bar_width = plot * value / 100
         name = document["manifest"]["name"]
         label = name if len(name) <= 34 else name[:33] + "…"
-        out.append(f'<text class="name" x="{left - 10}" y="{y + 14}" text-anchor="end"><title>{_e(name)}</title>{_e(label)}</text>')
-        out.append(f'<rect x="{left}" y="{y + 4}" width="{bar_width:.1f}" height="12" rx="4" fill="var(--series)">'
-                   f'<title>{_e(name)}: {value:.1f} out of 100</title></rect>')
+        out.append(
+            f'<text class="name" x="{left - 10}" y="{y + 14}" text-anchor="end"><title>{_e(name)}</title>{_e(label)}</text>'
+        )
+        out.append(
+            f'<rect x="{left}" y="{y + 4}" width="{bar_width:.1f}" height="12" rx="4" fill="var(--series)">'
+            f"<title>{_e(name)}: {value:.1f} out of 100</title></rect>"
+        )
         # Keep the baseline end square: only the data end of the bar is rounded
         if bar_width > 4:
             out.append(f'<rect x="{left}" y="{y + 4}" width="4" height="12" fill="var(--series)"/>')
@@ -193,8 +202,12 @@ def _overall_chart(scored: list) -> str:
 
 def render_board(scored: list, failed: list) -> tuple:
     task_keys = list(TASKS)
-    head = ['<th data-sort="number">#</th>', '<th class="text" data-sort="text">Bot</th>', '<th class="text" data-sort="text">Author</th>',
-            '<th data-sort="number">Overall</th>']
+    head = [
+        '<th data-sort="number">#</th>',
+        '<th class="text" data-sort="text">Bot</th>',
+        '<th class="text" data-sort="text">Author</th>',
+        '<th data-sort="number">Overall</th>',
+    ]
     head += [f'<th data-sort="number" title="{_e(TASKS[key].description)}">{_e(TASKS[key].name)}</th>' for key in task_keys]
     head += ['<th class="text">Replays</th>']
 
@@ -231,7 +244,7 @@ def render_board(scored: list, failed: list) -> tuple:
             cells.append(f'<td class="text"><a href="replay.html?bot={_e(document["_slug"])}">Watch</a></td>')
         else:
             cells.append('<td class="text"><span class="small">–</span></td>')
-        search = f'{manifest["name"]} {manifest["author"]} {manifest.get("description", "")}'.lower()
+        search = f"{manifest['name']} {manifest['author']} {manifest.get('description', '')}".lower()
         rows.append(f'<tr data-search="{_e(search)}">' + "".join(cells) + "</tr>")
 
     if rows:
@@ -278,9 +291,11 @@ def render_duels(documents: list, duels: list) -> str:
             f'<td data-value="{played.get(slug, 0)}">{played.get(slug, 0)}</td>'
             f'<td data-value="{share:.4f}">{_bar(share, f"{share:.0%}", False, f"{won} points won, {lost} lost")}</td></tr>'
         )
-    table = ('<div class="card"><table><thead><tr><th data-sort="number">#</th><th class="text" data-sort="text">Bot</th>'
-             '<th data-sort="number">Rating</th><th data-sort="number">Opponents</th><th data-sort="number">Points won</th>'
-             f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+    table = (
+        '<div class="card"><table><thead><tr><th data-sort="number">#</th><th class="text" data-sort="text">Bot</th>'
+        '<th data-sort="number">Rating</th><th data-sort="number">Opponents</th><th data-sort="number">Points won</th>'
+        f"</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
+    )
 
     grid = ""
     if 2 <= len(order) <= 12:
@@ -305,15 +320,21 @@ def render_duels(documents: list, duels: list) -> str:
                     for k, v in duel["kinds"].items()
                 )
                 colour = "var(--good)" if mine > theirs else "var(--ink-2)"
-                cells.append(f'<td title="{_e(title)}"><a href="replay.html?duel={_e(pair)}" style="color:{colour}">{mine}-{theirs}</a></td>')
+                cells.append(
+                    f'<td title="{_e(title)}"><a href="replay.html?duel={_e(pair)}" style="color:{colour}">{mine}-{theirs}</a></td>'
+                )
             body.append(f'<tr><td class="text"><strong>{i + 1}</strong> {_e(names.get(a, a))}</td>{"".join(cells)}</tr>')
-        grid = (f'<h2>Every pairing</h2><div class="card"><table><thead><tr><th class="text">Points for the row bot against…</th>{head}</tr></thead>'
-                f'<tbody>{"".join(body)}</tbody></table></div>'
-                '<p class="small">Each pairing plays 200 episodes per direction of each duel kind. Green means the row bot won the pairing. Click a result to watch it.</p>')
+        grid = (
+            f'<h2>Every pairing</h2><div class="card"><table><thead><tr><th class="text">Points for the row bot against…</th>{head}</tr></thead>'
+            f"<tbody>{''.join(body)}</tbody></table></div>"
+            '<p class="small">Each pairing plays 200 episodes per direction of each duel kind. Green means the row bot won the pairing. Click a result to watch it.</p>'
+        )
 
-    return (f'<h2 id="duels">Duels</h2><p class="lead">Scored bots play each other directly: a penalty duel, attacking then defending, and a kickoff duel. '
-            f'The rating is fitted to every point won and lost; 400 points of difference means winning about ten points in eleven. '
-            f'<a href="{REPOSITORY}/blob/main/docs/DUELS.md">How duels work</a></p>{table}{grid}')
+    return (
+        f'<h2 id="duels">Duels</h2><p class="lead">Scored bots play each other directly: a penalty duel, attacking then defending, and a kickoff duel. '
+        f"The rating is fitted to every point won and lost; 400 points of difference means winning about ten points in eleven. "
+        f'<a href="{REPOSITORY}/blob/main/docs/DUELS.md">How duels work</a></p>{table}{grid}'
+    )
 
 
 def render(documents: list, duels: list = None) -> str:
@@ -324,13 +345,15 @@ def render(documents: list, duels: list = None) -> str:
     table, failed_html = render_board(scored, failed)
 
     last = max((d["scored_at"] for d in scored), default="")
-    tiles = _tiles([
-        ("Bots", str(len(scored))),
-        ("Tasks", str(len(TASKS))),
-        ("Episodes per bot", f"{len(TASKS) * 1000:,}"),
-        ("Duels played", str(len(duels))),
-        ("Last scored", last[:10] or "–"),
-    ])
+    tiles = _tiles(
+        [
+            ("Bots", str(len(scored))),
+            ("Tasks", str(len(TASKS))),
+            ("Episodes per bot", f"{len(TASKS) * 1000:,}"),
+            ("Duels played", str(len(duels))),
+            ("Last scored", last[:10] or "–"),
+        ]
+    )
 
     chart = f'<h2>Scores at a glance</h2><div class="card">{_overall_chart(scored)}</div>' if scored else ""
 
@@ -342,7 +365,7 @@ def render(documents: list, duels: list = None) -> str:
 </div>
 <p class="small">Full instructions: <a href="{REPOSITORY}/blob/main/docs/SUBMITTING.md">SUBMITTING.md</a>. The interface every bot uses: <a href="{REPOSITORY}/blob/main/docs/INTERFACE.md">INTERFACE.md</a>. The rules: <a href="{REPOSITORY}/blob/main/RULES.md">RULES.md</a>.</p>'''
 
-    built = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    built = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M UTC")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -389,13 +412,14 @@ def load_flags(path: str) -> dict:
     """`flags.json` maps a slug to the https address of the discussion about that entry (see RULES.md)."""
     if not path or not os.path.isfile(path):
         return {}
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         flags = json.load(f)
     return {slug: url for slug, url in flags.items() if isinstance(url, str) and url.startswith("https://")}
 
 
-def build_site(results_folder: str, output_folder: str, replays_folder: str = None, duels_folder: str = None,
-               flags_path: str = None) -> str:
+def build_site(
+    results_folder: str, output_folder: str, replays_folder: str = None, duels_folder: str = None, flags_path: str = None
+) -> str:
     documents = load_results(results_folder)
     duels = load_duels(duels_folder)
     flags = load_flags(flags_path)
@@ -421,17 +445,27 @@ def build_site(results_folder: str, output_folder: str, replays_folder: str = No
         f.write(render(documents, duels))
 
     template = os.path.join(os.path.dirname(__file__), "replay.html")
-    with open(template, "r", encoding="utf-8") as f:
+    with open(template, encoding="utf-8") as f:
         page = f.read().replace("__TASK_NAMES__", json.dumps({key: task.name for key, task in TASKS.items()}))
     with open(os.path.join(output_folder, "replay.html"), "w", encoding="utf-8") as f:
         f.write(page)
 
     # The viewer's one library is served by the site itself, not fetched from another host
     os.makedirs(os.path.join(output_folder, "vendor"), exist_ok=True)
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), "vendor", "three.module.js"),
-                    os.path.join(output_folder, "vendor", "three.module.js"))
+    shutil.copyfile(
+        os.path.join(os.path.dirname(__file__), "vendor", "three.module.js"),
+        os.path.join(output_folder, "vendor", "three.module.js"),
+    )
 
     # The raw results are published too, for anyone who wants to make their own charts
     with open(os.path.join(output_folder, "results.json"), "w", encoding="utf-8") as f:
-        json.dump([{k: v for k, v in d.items() if not k.startswith("_")} | {"slug": d["_slug"], "has_replays": d.get("_has_replays", False)} for d in documents], f, indent=1)
+        json.dump(
+            [
+                {k: v for k, v in d.items() if not k.startswith("_")}
+                | {"slug": d["_slug"], "has_replays": d.get("_has_replays", False)}
+                for d in documents
+            ],
+            f,
+            indent=1,
+        )
     return path

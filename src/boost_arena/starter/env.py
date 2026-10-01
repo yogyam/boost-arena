@@ -13,8 +13,8 @@ from rlgym.rocket_league.api import GameState
 from rlgym.rocket_league.state_mutators import KickoffMutator
 
 from .. import interface
-from ..interface import BallInfo, CarInfo
-from ..tasks import CAR_REST_HEIGHT, BALL_REST_HEIGHT, TASKS
+from ..interface import BALL_REST_HEIGHT, CAR_REST_HEIGHT, FIELD_HALF_LENGTH, FIELD_HALF_WIDTH, BallInfo, CarInfo
+from ..tasks import TASKS
 from .curriculum import ALL_REWARDS, ProgressReader
 
 TICK_SKIP = interface.TICK_SKIP
@@ -22,10 +22,6 @@ ACTION_DELAY = interface.ACTION_DELAY
 
 # What the policy receives: the observation, then the action mask
 POLICY_INPUT_SIZE = interface.OBS_SIZE + interface.NUM_ACTIONS
-
-FIELD_HALF_WIDTH = 4096
-FIELD_HALF_LENGTH = 5120
-GOAL_HALF_WIDTH = 893
 
 
 def _car_info(car, prev_action) -> CarInfo:
@@ -98,7 +94,9 @@ class ArenaAction(ActionParser):
             index = int(np.asarray(action).reshape(-1)[0])
             new = interface.ACTION_TABLE[index]
             old = prev_actions.get(agent, np.zeros(8, dtype=np.float32))
-            engine_actions[agent] = np.vstack([np.tile(old, (ACTION_DELAY, 1)), np.tile(new, (TICK_SKIP - ACTION_DELAY, 1))]).astype(np.float32)
+            engine_actions[agent] = np.vstack(
+                [np.tile(old, (ACTION_DELAY, 1)), np.tile(new, (TICK_SKIP - ACTION_DELAY, 1))]
+            ).astype(np.float32)
             prev_actions[agent] = new.copy()
         return engine_actions
 
@@ -148,7 +146,7 @@ class SituationMutator(StateMutator):
             car.hitbox_type = common_values.PLANK
             car.boost_amount = 100.0
             car.demo_respawn_timer = 0.0
-        state.config.boost_consumption = 1.0 / common_values.BOOST_CONSUMPTION_RATE   # 1 boost per second, as in the rules
+        state.config.boost_consumption = 1.0 / common_values.BOOST_CONSUMPTION_RATE  # 1 boost per second, as in the rules
 
         if name == "kickoff":
             self.kickoff.apply(state, shared_info)
@@ -173,28 +171,39 @@ class SituationMutator(StateMutator):
                 pos, yaw, vel = recorder.cars[index]
             else:
                 # The task has no opponent, so the orange car waits in front of its goal
-                pos = np.array([self.rng.uniform(-600, 600), FIELD_HALF_LENGTH - self.rng.uniform(200, 600), CAR_REST_HEIGHT], dtype=np.float32)
+                pos = np.array(
+                    [self.rng.uniform(-600, 600), FIELD_HALF_LENGTH - self.rng.uniform(200, 600), CAR_REST_HEIGHT],
+                    dtype=np.float32,
+                )
                 yaw = -math.pi / 2
                 vel = np.zeros(3, dtype=np.float32)
             self._place(cars[0], pos, yaw, vel)
 
     def _random(self, state: GameState):
         """Ball anywhere with some speed, cars anywhere on the ground, facing anywhere."""
-        state.ball.position = np.array([
-            self.rng.uniform(-FIELD_HALF_WIDTH + 400, FIELD_HALF_WIDTH - 400),
-            self.rng.uniform(-FIELD_HALF_LENGTH + 500, FIELD_HALF_LENGTH - 500),
-            self.rng.uniform(BALL_REST_HEIGHT, 1200),
-        ], dtype=np.float32)
-        speed = self.rng.uniform(0, 1500)
-        heading = self.rng.uniform(-math.pi, math.pi)
-        state.ball.linear_velocity = np.array([speed * math.cos(heading), speed * math.sin(heading), self.rng.uniform(-300, 600)], dtype=np.float32)
-        state.ball.angular_velocity = np.zeros(3, dtype=np.float32)
-        for car in state.cars.values():
-            pos = np.array([
+        state.ball.position = np.array(
+            [
                 self.rng.uniform(-FIELD_HALF_WIDTH + 400, FIELD_HALF_WIDTH - 400),
                 self.rng.uniform(-FIELD_HALF_LENGTH + 500, FIELD_HALF_LENGTH - 500),
-                CAR_REST_HEIGHT,
-            ], dtype=np.float32)
+                self.rng.uniform(BALL_REST_HEIGHT, 1200),
+            ],
+            dtype=np.float32,
+        )
+        speed = self.rng.uniform(0, 1500)
+        heading = self.rng.uniform(-math.pi, math.pi)
+        state.ball.linear_velocity = np.array(
+            [speed * math.cos(heading), speed * math.sin(heading), self.rng.uniform(-300, 600)], dtype=np.float32
+        )
+        state.ball.angular_velocity = np.zeros(3, dtype=np.float32)
+        for car in state.cars.values():
+            pos = np.array(
+                [
+                    self.rng.uniform(-FIELD_HALF_WIDTH + 400, FIELD_HALF_WIDTH - 400),
+                    self.rng.uniform(-FIELD_HALF_LENGTH + 500, FIELD_HALF_LENGTH - 500),
+                    CAR_REST_HEIGHT,
+                ],
+                dtype=np.float32,
+            )
             self._place(car, pos, self.rng.uniform(-math.pi, math.pi), np.zeros(3, dtype=np.float32))
 
     @staticmethod
@@ -225,7 +234,7 @@ class CurriculumReward(RewardFunction):
         for agent in agents:
             car = state.cars[agent]
             physics = car.physics
-            sign = 1.0 if car.is_blue else -1.0          # Blue attacks +Y
+            sign = 1.0 if car.is_blue else -1.0  # Blue attacks +Y
             goal_y = sign * FIELD_HALF_LENGTH
 
             parts = {}
@@ -299,5 +308,5 @@ def build_env():
         reward_fn=CurriculumReward(progress),
         termination_cond=GoalCondition(),
         truncation_cond=TimeoutCondition(),
-        transition_engine=RocketSimEngine(rlbot_delay=False),   # The rulebook's delay is applied by ArenaAction
+        transition_engine=RocketSimEngine(rlbot_delay=False),  # The rulebook's delay is applied by ArenaAction
     )

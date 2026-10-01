@@ -7,12 +7,22 @@ run name is given again. Export a submission with `python -m boost_arena.starter
 """
 
 import argparse
+import json
 import multiprocessing
 import os
 import sys
 import time
 
 RUNS_FOLDER = "runs"
+
+
+def _timesteps_so_far(progress_path: str) -> int:
+    """How far a run got, from its progress file; 0 for a new run."""
+    try:
+        with open(progress_path, encoding="utf-8") as f:
+            return int(json.load(f)["timesteps"])
+    except (OSError, ValueError, KeyError):
+        return 0
 
 
 def main(argv=None):
@@ -23,7 +33,7 @@ def main(argv=None):
     parser.add_argument("--timesteps", type=int, default=1_300_000_000, help="Stop after this many timesteps")
     parser.add_argument("--layers", default="256,256,256", help="Hidden layer sizes of the policy")
     parser.add_argument("--no-layer-norm", action="store_true")
-    parser.add_argument("--learning-rate", type=float, default=2e-4)
+    parser.add_argument("--learning-rate", type=float, default=None, help="Default: the curriculum phase's value")
     parser.add_argument("--entropy", type=float, default=0.02, help="Entropy coefficient: higher explores more")
     parser.add_argument("--steps-per-update", type=int, default=50_000)
     parser.add_argument("--phase-scale", type=float, default=1.0, help="Shrink every curriculum phase start, for quick tests")
@@ -43,11 +53,23 @@ def main(argv=None):
     os.environ[PROGRESS_FILE_VARIABLE] = progress_path
 
     import numpy as np
-    from rlgym_learn import BaseConfigModel, LearningCoordinator, LearningCoordinatorConfigModel, ProcessConfigModel, SerdeTypesModel
+    from rlgym_learn import (
+        BaseConfigModel,
+        LearningCoordinator,
+        LearningCoordinatorConfigModel,
+        ProcessConfigModel,
+        SerdeTypesModel,
+    )
     from rlgym_learn.pyany_serde import PyAnySerdeType
     from rlgym_learn_algos.ppo import (
-        ExperienceBufferConfigModel, GAETrajectoryProcessor, GAETrajectoryProcessorConfigModel, NumpyExperienceBuffer,
-        PPOAgentController, PPOAgentControllerConfigModel, PPOLearnerConfigModel, PPOMetricsLogger,
+        ExperienceBufferConfigModel,
+        GAETrajectoryProcessor,
+        GAETrajectoryProcessorConfigModel,
+        NumpyExperienceBuffer,
+        PPOAgentController,
+        PPOAgentControllerConfigModel,
+        PPOLearnerConfigModel,
+        PPOMetricsLogger,
     )
     from torch.optim import Adam
 
@@ -69,8 +91,10 @@ def main(argv=None):
                 print(f"\n=== Curriculum phase {phase.name} (from {timesteps:,} timesteps) ===\n", flush=True)
 
     def optimizers_factory(actor_critic, optimizer_kwargs, agent_controller):
-        return [Adam(actor_critic.actor.parameters(), **optimizer_kwargs["actor"]),
-                Adam(actor_critic.critic.parameters(), **optimizer_kwargs["critic"])]
+        return [
+            Adam(actor_critic.actor.parameters(), **optimizer_kwargs["actor"]),
+            Adam(actor_critic.critic.parameters(), **optimizer_kwargs["critic"]),
+        ]
 
     # Resume from the newest checkpoint of this run, if there is one
     from .export import newest_checkpoint
@@ -78,6 +102,13 @@ def main(argv=None):
     checkpoint = newest_checkpoint(run_folder)
     if checkpoint:
         print(f"Resuming from {checkpoint}")
+
+    # The learning rate and discount come from the phase in force when training starts or resumes.
+    # The trainer cannot change them while running, so a run that crosses into the next phase keeps
+    # the old values until it is stopped and started again, which resumes from the newest checkpoint.
+    starting_phase = phase_for(_timesteps_so_far(progress_path), args.phase_scale)
+    learning_rate = args.learning_rate if args.learning_rate is not None else starting_phase.learning_rate
+    print(f"Phase {starting_phase.name}: learning rate {learning_rate}, gamma {starting_phase.gamma}")
 
     config = LearningCoordinatorConfigModel(
         base_config=BaseConfigModel(
@@ -103,12 +134,15 @@ def main(argv=None):
                 batch_size=args.steps_per_update,
                 n_minibatches=1,
                 n_epochs=1,
-                optimizer_named_parameter_group_kwargs={"actor": {"lr": args.learning_rate}, "critic": {"lr": args.learning_rate}},
+                optimizer_named_parameter_group_kwargs={
+                    "actor": {"lr": learning_rate},
+                    "critic": {"lr": learning_rate},
+                },
                 device=args.device,
             ),
             experience_buffer_config=ExperienceBufferConfigModel(
                 max_size=2 * args.steps_per_update,
-                trajectory_processor_config=GAETrajectoryProcessorConfigModel(gamma=phase_for(0, args.phase_scale).gamma),
+                trajectory_processor_config=GAETrajectoryProcessorConfigModel(gamma=starting_phase.gamma),
                 device="cpu",
             ),
         ),

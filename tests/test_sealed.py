@@ -50,7 +50,7 @@ def test_a_changed_file_does_not_open():
     with pytest.raises(SealedFileError):
         open_sealed(bytes(sealed), private, *BOT)
     sealed = bytearray(seal(b"secret model", public, *BOT))
-    sealed[len(MAGIC) + 3] ^= 1   # Inside the header
+    sealed[len(MAGIC) + 3] ^= 1  # Inside the header
     with pytest.raises(SealedFileError):
         open_sealed(bytes(sealed), private, *BOT)
 
@@ -58,7 +58,7 @@ def test_a_changed_file_does_not_open():
 def test_other_files_are_refused():
     private, _ = generate_key_pair()
     assert not is_sealed(b"just some bytes")
-    assert not is_sealed(b"BOOSTARENA-SEALED-1\n" + b"\0" * 100)   # The old format is not accepted
+    assert not is_sealed(b"BOOSTARENA-SEALED-1\n" + b"\0" * 100)  # The old format is not accepted
     with pytest.raises(SealedFileError, match="not a sealed model"):
         open_sealed(b"just some bytes", private, *BOT)
 

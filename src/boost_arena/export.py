@@ -52,10 +52,15 @@ def build_onnx(layers, activation):
         is_output_layer = i == len(layers) - 1
         if kind == "linear":
             out = "logits" if is_output_layer else f"linear_{i}"
-            nodes.append(helper.make_node(
-                # PyTorch stores the weights as (outputs, inputs), so they are transposed
-                "Gemm", [current, constant(f"weight_{i}", weight), constant(f"bias_{i}", bias)], [out], transB=1
-            ))
+            nodes.append(
+                helper.make_node(
+                    # PyTorch stores the weights as (outputs, inputs), so they are transposed
+                    "Gemm",
+                    [current, constant(f"weight_{i}", weight), constant(f"bias_{i}", bias)],
+                    [out],
+                    transB=1,
+                )
+            )
             current = out
             # GigaLearnCPP applies the activation after the layer norm, when there is one
             followed_by_norm = not is_output_layer and layers[i + 1][0] == "layer_norm"
@@ -63,10 +68,15 @@ def build_onnx(layers, activation):
                 nodes.append(helper.make_node(op_type, [current], [f"activation_{i}"], **attributes))
                 current = f"activation_{i}"
         else:
-            nodes.append(helper.make_node(
-                "LayerNormalization", [current, constant(f"scale_{i}", weight), constant(f"shift_{i}", bias)],
-                [f"norm_{i}"], axis=-1, epsilon=LAYER_NORM_EPSILON,
-            ))
+            nodes.append(
+                helper.make_node(
+                    "LayerNormalization",
+                    [current, constant(f"scale_{i}", weight), constant(f"shift_{i}", bias)],
+                    [f"norm_{i}"],
+                    axis=-1,
+                    epsilon=LAYER_NORM_EPSILON,
+                )
+            )
             nodes.append(helper.make_node(op_type, [f"norm_{i}"], [f"activation_{i}"], **attributes))
             current = f"activation_{i}"
 
@@ -74,7 +84,8 @@ def build_onnx(layers, activation):
         raise SystemExit("The policy does not end in an output layer")
 
     graph = helper.make_graph(
-        nodes, "boost_arena_policy",
+        nodes,
+        "boost_arena_policy",
         [helper.make_tensor_value_info("obs", TensorProto.FLOAT, ["N", OBS_SIZE])],
         [helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["N", NUM_ACTIONS])],
         initializers,
@@ -87,6 +98,7 @@ def build_onnx(layers, activation):
 
 def reference_forward(layers, activation, obs):
     """The same network in plain numpy, to check the ONNX file against."""
+
     def activate(x):
         if activation == "leaky_relu":
             return np.where(x > 0, x, 0.01 * x)
@@ -110,14 +122,15 @@ def reference_forward(layers, activation, obs):
     return x
 
 
-
 def check_and_serialize(layers, activation) -> bytes:
     """Builds the ONNX model, checks it against a plain numpy version of the network, and returns the bytes."""
     import onnxruntime as ort
 
     first, last = layers[0][1], layers[-1][1]
     if first.shape[1] != OBS_SIZE or last.shape[0] != NUM_ACTIONS:
-        raise ValueError(f"This network takes {first.shape[1]} inputs and gives {last.shape[0]} outputs. Boost Arena needs {OBS_SIZE} and {NUM_ACTIONS}.")
+        raise ValueError(
+            f"This network takes {first.shape[1]} inputs and gives {last.shape[0]} outputs. Boost Arena needs {OBS_SIZE} and {NUM_ACTIONS}."
+        )
 
     data = build_onnx(layers, activation).SerializeToString()
     session = ort.InferenceSession(data, providers=["CPUExecutionProvider"])
@@ -135,7 +148,19 @@ def layers_from_sequential(sequential):
     layers = []
     for module in sequential:
         if isinstance(module, nn.Linear):
-            layers.append(("linear", module.weight.detach().cpu().numpy().astype(np.float32), module.bias.detach().cpu().numpy().astype(np.float32)))
+            layers.append(
+                (
+                    "linear",
+                    module.weight.detach().cpu().numpy().astype(np.float32),
+                    module.bias.detach().cpu().numpy().astype(np.float32),
+                )
+            )
         elif isinstance(module, nn.LayerNorm):
-            layers.append(("layer_norm", module.weight.detach().cpu().numpy().astype(np.float32), module.bias.detach().cpu().numpy().astype(np.float32)))
+            layers.append(
+                (
+                    "layer_norm",
+                    module.weight.detach().cpu().numpy().astype(np.float32),
+                    module.bias.detach().cpu().numpy().astype(np.float32),
+                )
+            )
     return layers

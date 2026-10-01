@@ -20,7 +20,7 @@ def test_points_add_up_and_repeat(random_bot):
     first = play_duel("penalty", random_bot, random_bot, episodes=6, arenas=3)
     assert first.episodes == 6
     assert first.blue_points + first.orange_points + first.draws == 6
-    assert first.draws == 0   # In a penalty duel the keeper gets the point when nobody scores
+    assert first.draws == 0  # In a penalty duel the keeper gets the point when nobody scores
     second = play_duel("penalty", random_bot, random_bot, episodes=6, arenas=6)
     assert (first.blue_points, first.orange_points) == (second.blue_points, second.orange_points)
 
@@ -39,12 +39,18 @@ def test_a_pair_plays_both_ways(random_bot):
 
 
 def test_rating_orders_bots_by_strength():
-    points = {("strong", "middle"): 80, ("middle", "strong"): 20, ("middle", "weak"): 75, ("weak", "middle"): 25,
-              ("strong", "weak"): 95, ("weak", "strong"): 5}
+    points = {
+        ("strong", "middle"): 80,
+        ("middle", "strong"): 20,
+        ("middle", "weak"): 75,
+        ("weak", "middle"): 25,
+        ("strong", "weak"): 95,
+        ("weak", "strong"): 5,
+    }
     rating = ratings(points)
     assert rating["strong"] > rating["middle"] > rating["weak"]
     assert 0.7 < expected_share(rating["strong"], rating["middle"]) < 0.9
-    assert abs(sum(fit_strengths(points).values()) / 3 - 1) < 1   # Normalised around 1
+    assert abs(sum(fit_strengths(points).values()) / 3 - 1) < 1  # Normalised around 1
 
 
 def test_an_unbeaten_bot_gets_a_finite_rating():
@@ -62,7 +68,8 @@ def test_service_bookkeeping(tmp_path, random_bot):
         (submissions / slug).mkdir()
         (submissions / slug / "submission.json").write_text(json.dumps({"slug": slug}))
     import hashlib
-    for slug in ("alpha", "beta"):   # gamma has no result, so it does not duel
+
+    for slug in ("alpha", "beta"):  # gamma has no result, so it does not duel
         digest = hashlib.sha256((submissions / slug / "submission.json").read_bytes()).hexdigest()
         (results / f"{slug}.json").write_text(json.dumps({"manifest_sha256": digest, "results": []}))
 
@@ -78,7 +85,7 @@ def test_service_bookkeeping(tmp_path, random_bot):
 
     # An updated bot plays again, once it has been scored again
     (submissions / "alpha" / "submission.json").write_text(json.dumps({"slug": "alpha", "v": 2}))
-    assert pairs_to_play(str(submissions), str(results), str(duels)) == []   # Not scored yet, so it sits out
+    assert pairs_to_play(str(submissions), str(results), str(duels)) == []  # Not scored yet, so it sits out
     digest = hashlib.sha256((submissions / "alpha" / "submission.json").read_bytes()).hexdigest()
     (results / "alpha.json").write_text(json.dumps({"manifest_sha256": digest, "results": []}))
     assert pairs_to_play(str(submissions), str(results), str(duels)) == [("alpha", "beta")]
@@ -88,7 +95,9 @@ def test_validation_refuses_bad_duels():
     with pytest.raises(SubmissionError):
         validate_duel_document({"a": "b", "b": "a"})
     with pytest.raises(SubmissionError, match="fields"):
-        validate_duel_replays_document({"pair": "a__b", "a": "a", "b": "b", "fps": 15, "duel_set_version": 1, "kinds": {}, "extra": 1})
+        validate_duel_replays_document(
+            {"pair": "a__b", "a": "a", "b": "b", "fps": 15, "duel_set_version": 1, "kinds": {}, "extra": 1}
+        )
 
 
 def test_duel_validation_checks_that_the_numbers_agree(random_bot, tmp_path):
@@ -108,7 +117,7 @@ def test_duel_validation_checks_that_the_numbers_agree(random_bot, tmp_path):
     with pytest.raises(SubmissionError, match="totals"):
         validate_duel_document(forged)
     forged = json.loads(json.dumps(document))
-    forged["official"] = True   # Three episodes are not the official number
+    forged["official"] = True  # Three episodes are not the official number
     with pytest.raises(SubmissionError, match="official"):
         validate_duel_document(forged)
     forged = json.loads(json.dumps(document))

@@ -24,7 +24,7 @@ from .sim import Game
 from .tasks import TASKS
 
 DUEL_SET_VERSION = 1
-OFFICIAL_EPISODES = 200      # Per direction of each duel kind
+OFFICIAL_EPISODES = 200  # Per direction of each duel kind
 PENALTY_TIME_LIMIT = TASKS["penalty"].time_limit
 KICKOFF_TIME_LIMIT = 30.0
 
@@ -37,6 +37,7 @@ DUEL_KINDS = {
 @dataclass
 class DuelTally:
     """Points for the blue and orange bots over a set of episodes, plus what happened."""
+
     episodes: int = 0
     blue_points: int = 0
     orange_points: int = 0
@@ -46,22 +47,31 @@ class DuelTally:
 
 def _episode_rngs(kind: str, seed: int, episode: int):
     duel_id = zlib.crc32(("duel:" + kind).encode())
-    return (np.random.default_rng([seed, duel_id, episode, 0]),
-            np.random.default_rng([seed, duel_id, episode, 1]),
-            np.random.default_rng([seed, duel_id, episode, 2]))
+    return (
+        np.random.default_rng([seed, duel_id, episode, 0]),
+        np.random.default_rng([seed, duel_id, episode, 1]),
+        np.random.default_rng([seed, duel_id, episode, 2]),
+    )
 
 
 def _kickoff(game: Game, rng: np.random.Generator):
     game.reset()
     game.arena.reset_kickoff(int(rng.integers(0, 2**31 - 1)))
-    for i, car in enumerate(game.cars):
+    for car in game.cars:
         state = car.get_state()
         state.boost = 100.0
         car.set_state(state)
 
 
-def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED,
-              arenas: int = 32, record_first: int = 0) -> DuelTally:
+def play_duel(
+    kind: str,
+    blue: Policy,
+    orange: Policy,
+    episodes: int = OFFICIAL_EPISODES,
+    seed: int = OFFICIAL_SEED,
+    arenas: int = 32,
+    record_first: int = 0,
+) -> DuelTally:
     """Blue against orange in `kind`. In the penalty duel blue attacks and orange keeps goal."""
     if kind not in DUEL_KINDS:
         raise ValueError(f"Unknown duel kind {kind}")
@@ -84,11 +94,15 @@ def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_
         setup_rng, blue_rng, orange_rng = _episode_rngs(kind, seed, next_episode)
         game = games[slot]
         if penalty:
-            TASKS["penalty"].setup(game, setup_rng)   # Places the ball, the attacker and the keeper's start
+            TASKS["penalty"].setup(game, setup_rng)  # Places the ball, the attacker and the keeper's start
         else:
             _kickoff(game, setup_rng)
         rngs[slot] = (blue_rng, orange_rng)
-        recording[slot] = {"episode": next_episode, "frames": [_frame(game.ball_info(), game.car_infos())]} if next_episode < record_first else None
+        recording[slot] = (
+            {"episode": next_episode, "frames": [_frame(game.ball_info(), game.car_infos())]}
+            if next_episode < record_first
+            else None
+        )
         active[slot] = True
         next_episode += 1
 
@@ -98,7 +112,9 @@ def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_
     while any(active):
         slots = [slot for slot in range(arenas) if active[slot]]
         states = [(games[slot].ball_info(), games[slot].car_infos()) for slot in slots]
-        obs = {team: np.stack([interface.build_observation(ball, cars, team) for ball, cars in states]) for team in (BLUE, ORANGE)}
+        obs = {
+            team: np.stack([interface.build_observation(ball, cars, team) for ball, cars in states]) for team in (BLUE, ORANGE)
+        }
         masks = {team: np.stack([interface.action_mask(cars[team]) for _, cars in states]) for team in (BLUE, ORANGE)}
         actions = {
             BLUE: blue.act(obs[BLUE], masks[BLUE], [rngs[slot][0] for slot in slots]),
@@ -123,7 +139,7 @@ def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_
                 tally.orange_points += 1
                 outcome = "orange"
             elif penalty:
-                tally.orange_points += 1   # The keeper kept it out
+                tally.orange_points += 1  # The keeper kept it out
                 outcome = "orange"
             else:
                 tally.draws += 1
@@ -140,11 +156,24 @@ def play_duel(kind: str, blue: Policy, orange: Policy, episodes: int = OFFICIAL_
     return tally
 
 
-def run_pair(policy_a: Policy, policy_b: Policy, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED,
-             arenas: int = 32, record_first: int = 0) -> dict:
+def run_pair(
+    policy_a: Policy,
+    policy_b: Policy,
+    episodes: int = OFFICIAL_EPISODES,
+    seed: int = OFFICIAL_SEED,
+    arenas: int = 32,
+    record_first: int = 0,
+) -> dict:
     """Every duel kind, both ways round. Returns points for A and B, per kind and in total."""
-    document = {"episodes_per_direction": episodes, "seed": seed, "season": SEASON, "duel_set_version": DUEL_SET_VERSION,
-                "official": episodes == OFFICIAL_EPISODES and seed == OFFICIAL_SEED, "kinds": {}, "replays": {}}
+    document = {
+        "episodes_per_direction": episodes,
+        "seed": seed,
+        "season": SEASON,
+        "duel_set_version": DUEL_SET_VERSION,
+        "official": episodes == OFFICIAL_EPISODES and seed == OFFICIAL_SEED,
+        "kinds": {},
+        "replays": {},
+    }
     total_a = total_b = 0
     for kind in DUEL_KINDS:
         a_blue = play_duel(kind, policy_a, policy_b, episodes, seed, arenas, record_first)
@@ -152,7 +181,9 @@ def run_pair(policy_a: Policy, policy_b: Policy, episodes: int = OFFICIAL_EPISOD
         a_points = a_blue.blue_points + b_blue.orange_points
         b_points = a_blue.orange_points + b_blue.blue_points
         document["kinds"][kind] = {
-            "a_points": a_points, "b_points": b_points, "draws": a_blue.draws + b_blue.draws,
+            "a_points": a_points,
+            "b_points": b_points,
+            "draws": a_blue.draws + b_blue.draws,
             "a_as_blue": {"a": a_blue.blue_points, "b": a_blue.orange_points, "draws": a_blue.draws},
             "b_as_blue": {"a": b_blue.orange_points, "b": b_blue.blue_points, "draws": b_blue.draws},
         }

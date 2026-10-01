@@ -26,8 +26,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The locked, hash-checked dependencies: a score is made on known versions of everything
       - name: Install
-        run: pip install --quiet .
+        run: |
+          pip install --quiet --require-hashes -r requirements.lock
+          pip install --quiet --no-deps .
 
       - name: Refuse changes outside submissions/
         env:

@@ -36,7 +36,9 @@ def replay(trajectory):
 
     for recorded, player in enumerate(trajectory["initial_players"]):
         rot_mat = rs.RotMat(_rs_vec(player["forward"]), _rs_vec(player["right"]), _rs_vec(player["up"]))
-        game.set_car(car_of[recorded], player["pos"], rot_mat=rot_mat, vel=player["vel"], ang_vel=player["ang_vel"], boost=player["boost"])
+        game.set_car(
+            car_of[recorded], player["pos"], rot_mat=rot_mat, vel=player["vel"], ang_vel=player["ang_vel"], boost=player["boost"]
+        )
 
     errors = []
     for step in trajectory["steps"]:
@@ -46,10 +48,12 @@ def replay(trajectory):
         game.step(actions)
 
         cars = game.car_infos()
-        errors.append(max(
-            float(np.abs(cars[car_of[recorded]].pos - np.array(player["pos"], dtype=np.float32)).max())
-            for recorded, player in enumerate(step["players"])
-        ))
+        errors.append(
+            max(
+                float(np.abs(cars[car_of[recorded]].pos - np.array(player["pos"], dtype=np.float32)).max())
+                for recorded, player in enumerate(step["players"])
+            )
+        )
     return game, car_of, errors
 
 
@@ -91,7 +95,7 @@ def test_a_demolished_car_stays_out():
     game = Game(with_opponent=True)
     game.set_car(0, (0, 0, 17), yaw=0.0, vel=(2300, 0, 0))
     game.set_car(1, (700, 0, 17), yaw=1.57)
-    full_speed_ahead = 18   # Throttle and boost, no steering
+    full_speed_ahead = 18  # Throttle and boost, no steering
     assert list(interface.ACTION_TABLE[full_speed_ahead]) == [1, 0, 0, 0, 0, 0, 1, 0]
 
     for _ in range(8):
@@ -100,7 +104,7 @@ def test_a_demolished_car_stays_out():
     assert wreck.is_demoed
     where = wreck.pos.copy()
 
-    for _ in range(15 * 8):   # Eight seconds, well past the simulator's usual three
+    for _ in range(15 * 8):  # Eight seconds, well past the simulator's usual three
         game.step([full_speed_ahead, 0])
 
     wreck = game.car_infos()[1]
@@ -135,7 +139,7 @@ def test_the_physics_settings_are_in_force():
     from boost_arena import sim
 
     game = Game(with_opponent=True)
-    for _ in range(2):   # They must survive a reset too
+    for _ in range(2):  # They must survive a reset too
         mutators = game.arena.get_mutator_config()
         assert mutators.boost_used_per_second == sim.BOOST_USED_PER_SECOND
         assert mutators.car_spawn_boost_amount == sim.CAR_SPAWN_BOOST

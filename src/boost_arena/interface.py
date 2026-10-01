@@ -25,7 +25,18 @@ BLUE = 0
 ORANGE = 1
 
 # Observation scaling
-POS_SCALE = np.array([1 / 4096, 1 / 5120, 1 / 2044], dtype=np.float32)
+# The field, in Unreal units. Everything that needs these takes them from here
+FIELD_HALF_WIDTH = 4096
+FIELD_HALF_LENGTH = 5120
+CEILING = 2044
+GOAL_HALF_WIDTH = 893
+BALL_RADIUS = 91.25
+BALL_REST_HEIGHT = 93.15
+CAR_REST_HEIGHT = 17.0
+GRAVITY = 650.0
+GOAL_LINE = 5124.25 + BALL_RADIUS  # The ball's centre is past this when it is in a goal
+
+POS_SCALE = np.array([1 / FIELD_HALF_WIDTH, 1 / FIELD_HALF_LENGTH, 1 / CEILING], dtype=np.float32)
 VEL_SCALE = np.float32(1 / 2300)
 ANG_VEL_SCALE = np.float32(1 / 5.5)
 
@@ -141,14 +152,16 @@ def action_mask(car: CarInfo) -> np.ndarray:
 
 def _car_block(car: CarInfo, invert: bool) -> np.ndarray:
     flip = _INVERT if invert else np.ones(3, dtype=np.float32)
-    return np.concatenate([
-        _vec(car.pos) * flip * POS_SCALE,
-        _vec(car.forward) * flip,
-        _vec(car.up) * flip,
-        _vec(car.vel) * flip * VEL_SCALE,
-        _vec(car.ang_vel) * flip * ANG_VEL_SCALE,
-        np.array([car.is_on_ground, car.has_flip_or_jump, car.is_demoed], dtype=np.float32),
-    ])
+    return np.concatenate(
+        [
+            _vec(car.pos) * flip * POS_SCALE,
+            _vec(car.forward) * flip,
+            _vec(car.up) * flip,
+            _vec(car.vel) * flip * VEL_SCALE,
+            _vec(car.ang_vel) * flip * ANG_VEL_SCALE,
+            np.array([car.is_on_ground, car.has_flip_or_jump, car.is_demoed], dtype=np.float32),
+        ]
+    )
 
 
 def build_observation(ball: BallInfo, cars: list, index: int) -> np.ndarray:
@@ -165,14 +178,16 @@ def build_observation(ball: BallInfo, cars: list, index: int) -> np.ndarray:
     if len(opponents) > 1:
         raise ValueError("Interface version 1 is 1v1: at most one opponent")
 
-    obs = np.concatenate([
-        _vec(ball.pos) * flip * POS_SCALE,
-        _vec(ball.vel) * flip * VEL_SCALE,
-        _vec(ball.ang_vel) * flip * ANG_VEL_SCALE,
-        np.asarray(me.prev_action, dtype=np.float32),
-        _car_block(me, invert),
-        _car_block(opponents[0], invert) if opponents else np.zeros(18, dtype=np.float32),
-    ]).astype(np.float32)
+    obs = np.concatenate(
+        [
+            _vec(ball.pos) * flip * POS_SCALE,
+            _vec(ball.vel) * flip * VEL_SCALE,
+            _vec(ball.ang_vel) * flip * ANG_VEL_SCALE,
+            np.asarray(me.prev_action, dtype=np.float32),
+            _car_block(me, invert),
+            _car_block(opponents[0], invert) if opponents else np.zeros(18, dtype=np.float32),
+        ]
+    ).astype(np.float32)
 
     assert obs.shape == (OBS_SIZE,)
     return obs

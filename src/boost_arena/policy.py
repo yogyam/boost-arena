@@ -27,25 +27,71 @@ MAX_LOGIT = 1e6  # Trained networks give logits in the tens. Anything near this 
 # Bounds on the work one decision may take, so a model cannot stall or exhaust the scoring service.
 # Shapes are checked for a batch of this many cars; intermediate values are capped per car.
 CHECK_BATCH = 32
-MAX_ELEMENTS_PER_CAR = 1_000_000       # Any intermediate value, e.g. a 1000x1000 matrix per car
+MAX_ELEMENTS_PER_CAR = 1_000_000  # Any intermediate value, e.g. a 1000x1000 matrix per car
 MAX_TOTAL_ELEMENTS_PER_CAR = 8_000_000  # All intermediate values together
-MAX_SECONDS_PER_BATCH = 0.05            # Average over several timed decisions for CHECK_BATCH cars
+MAX_SECONDS_PER_BATCH = 0.05  # Average over several timed decisions for CHECK_BATCH cars
 TIMING_ROUNDS = 20
 
 # Everything a feed-forward network needs. Anything else is refused: no loops or branches,
 # no operations that read files, no custom operations.
-ALLOWED_OPERATIONS = frozenset({
-    "Gemm", "MatMul", "Add", "Sub", "Mul", "Div", "Neg", "Sqrt", "Pow", "Reciprocal", "Abs", "Exp", "Log",
-    "Relu", "LeakyRelu", "PRelu", "Elu", "Selu", "Celu", "Gelu", "Mish", "Tanh", "Sigmoid", "HardSigmoid",
-    "HardSwish", "Softplus", "Softsign", "Softmax", "LogSoftmax", "Erf", "Clip", "Min", "Max",
-    "LayerNormalization", "BatchNormalization", "ReduceMean", "ReduceSum",
-    "Identity", "Constant", "Concat", "Flatten", "Reshape", "Squeeze", "Unsqueeze", "Slice", "Gather",
-    "Transpose", "Cast",
-})
+ALLOWED_OPERATIONS = frozenset(
+    {
+        "Gemm",
+        "MatMul",
+        "Add",
+        "Sub",
+        "Mul",
+        "Div",
+        "Neg",
+        "Sqrt",
+        "Pow",
+        "Reciprocal",
+        "Abs",
+        "Exp",
+        "Log",
+        "Relu",
+        "LeakyRelu",
+        "PRelu",
+        "Elu",
+        "Selu",
+        "Celu",
+        "Gelu",
+        "Mish",
+        "Tanh",
+        "Sigmoid",
+        "HardSigmoid",
+        "HardSwish",
+        "Softplus",
+        "Softsign",
+        "Softmax",
+        "LogSoftmax",
+        "Erf",
+        "Clip",
+        "Min",
+        "Max",
+        "LayerNormalization",
+        "BatchNormalization",
+        "ReduceMean",
+        "ReduceSum",
+        "Identity",
+        "Constant",
+        "Concat",
+        "Flatten",
+        "Reshape",
+        "Squeeze",
+        "Unsqueeze",
+        "Slice",
+        "Gather",
+        "Transpose",
+        "Cast",
+    }
+)
 
 # Logits of actions the car may not take are pushed down by this much
-_DISABLED_LOGIT = np.float32(-1e10)
-_MIN_PROBABILITY = np.float32(1e-11)
+DISABLED_LOGIT = -1e10
+MIN_PROBABILITY = 1e-11
+_DISABLED_LOGIT = np.float32(DISABLED_LOGIT)
+_MIN_PROBABILITY = np.float32(MIN_PROBABILITY)
 
 
 class InvalidModel(Exception):
@@ -83,7 +129,7 @@ def check_model(data: bytes) -> dict:
     if len(graph.sparse_initializer) > 0 or len(model.training_info) > 0:
         raise InvalidModel("Contains sparse tensors or training information, which are not accepted")
 
-    tensors = list(graph.initializer)   # Every tensor the file carries: weights, and constants inside operations
+    tensors = list(graph.initializer)  # Every tensor the file carries: weights, and constants inside operations
     for node in graph.node:
         if node.domain not in ("", "ai.onnx"):
             raise InvalidModel(f"Operation '{node.op_type}' is from '{node.domain}', only standard operations are accepted")
@@ -109,7 +155,12 @@ def check_model(data: bytes) -> dict:
 
     # How a runtime handles these differs between computers, so they are refused outright
     for tensor in tensors:
-        if tensor.data_type in (onnx.TensorProto.FLOAT, onnx.TensorProto.DOUBLE, onnx.TensorProto.FLOAT16, onnx.TensorProto.BFLOAT16):
+        if tensor.data_type in (
+            onnx.TensorProto.FLOAT,
+            onnx.TensorProto.DOUBLE,
+            onnx.TensorProto.FLOAT16,
+            onnx.TensorProto.BFLOAT16,
+        ):
             try:
                 values = onnx.numpy_helper.to_array(tensor)
             except Exception as e:
@@ -166,7 +217,9 @@ def _check_intermediate_sizes(model) -> None:
             raise InvalidModel(f"'{info.name}' would hold {elements:,} values per car, the limit is {MAX_ELEMENTS_PER_CAR:,}")
         total += elements
     if total > MAX_TOTAL_ELEMENTS_PER_CAR:
-        raise InvalidModel(f"The model's intermediate values would hold {total:,} values per car, the limit is {MAX_TOTAL_ELEMENTS_PER_CAR:,}")
+        raise InvalidModel(
+            f"The model's intermediate values would hold {total:,} values per car, the limit is {MAX_TOTAL_ELEMENTS_PER_CAR:,}"
+        )
 
 
 class Policy:
@@ -190,7 +243,7 @@ class Policy:
         """One decision for a batch of cars must be quick, or scoring would take hours."""
         obs = np.zeros((CHECK_BATCH, interface.OBS_SIZE), dtype=np.float32)
         try:
-            self.logits(obs)   # Warm up, and catch a model that fails on its first run
+            self.logits(obs)  # Warm up, and catch a model that fails on its first run
             started = time.perf_counter()
             for _ in range(TIMING_ROUNDS):
                 self.logits(obs)
@@ -200,7 +253,9 @@ class Policy:
         except Exception as e:
             raise InvalidModel(f"The model failed on a test decision: {type(e).__name__}") from None
         if seconds > MAX_SECONDS_PER_BATCH:
-            raise InvalidModel(f"A decision for {CHECK_BATCH} cars takes {seconds * 1000:.0f} ms, the limit is {MAX_SECONDS_PER_BATCH * 1000:.0f} ms")
+            raise InvalidModel(
+                f"A decision for {CHECK_BATCH} cars takes {seconds * 1000:.0f} ms, the limit is {MAX_SECONDS_PER_BATCH * 1000:.0f} ms"
+            )
 
     @classmethod
     def from_file(cls, path, **kwargs):

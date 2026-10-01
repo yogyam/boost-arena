@@ -16,7 +16,6 @@ import argparse
 import os
 import sys
 
-
 from boost_arena.export import ACTIVATIONS, check_and_serialize, read_gigalearn_layers
 
 
@@ -24,8 +23,12 @@ def main():
     parser = argparse.ArgumentParser(description="Convert a GigaLearnCPP checkpoint into a Boost Arena ONNX file")
     parser.add_argument("checkpoint", help="Checkpoint folder holding SHARED_HEAD.lt and POLICY.lt")
     parser.add_argument("output", help="ONNX file to write")
-    parser.add_argument("--activation", choices=sorted(ACTIVATIONS), default="leaky_relu",
-                        help="The activation the network was trained with (default: leaky_relu)")
+    parser.add_argument(
+        "--activation",
+        choices=sorted(ACTIVATIONS),
+        default="leaky_relu",
+        help="The activation the network was trained with (default: leaky_relu)",
+    )
     args = parser.parse_args()
 
     layers = []
@@ -39,7 +42,7 @@ def main():
     try:
         data = check_and_serialize(layers, args.activation)
     except ValueError as e:
-        raise SystemExit(f"{e}. Not written.")
+        raise SystemExit(f"{e}. Not written.") from None
 
     with open(args.output, "wb") as f:
         f.write(data)

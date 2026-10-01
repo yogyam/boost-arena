@@ -29,7 +29,7 @@ Useful options:
 | `--processes N` | your core count minus 3 | Environment processes. More is faster, up to the number of cores |
 | `--timesteps N` | 1,300,000,000 | Stop after this many steps |
 | `--layers 256,256,256` | 256,256,256 | Hidden layer sizes of the policy network |
-| `--learning-rate` | 0.0002 | |
+| `--learning-rate` | the phase's | Phase 1 uses 0.0002, later phases a little less |
 | `--entropy` | 0.02 | Higher values explore more |
 | `--device` | cpu | Where the network learns. `cuda` for an NVIDIA card |
 
@@ -51,7 +51,7 @@ If you changed `--layers` when training, pass the same value to `export`. Then f
 
 **Self-play.** Both cars in every game are driven by the same network, so the opponent improves as the bot does.
 
-**A curriculum in three phases**, following the PISTY paper: first ball control, then ground scoring, then aerial play. Each phase changes the reward weights and the mix of situations. The phases switch at 150 million and 800 million steps. See [`src/boost_arena/starter/curriculum.py`](../src/boost_arena/starter/curriculum.py); the weights are plain numbers you can edit.
+**A curriculum in three phases**, following the PISTY paper: first ball control, then ground scoring, then aerial play. Each phase changes the reward weights and the mix of situations, and sets a learning rate and discount. The phases switch at 150 million and 800 million steps. Reward weights and situations switch while training runs; the learning rate and discount are read when training starts or resumes, so stop and restart the run once it has crossed into a new phase to pick them up. See [`src/boost_arena/starter/curriculum.py`](../src/boost_arena/starter/curriculum.py); the weights are plain numbers you can edit.
 
 **Situations from the benchmark itself.** From phase 2 the bot practises the benchmark's own task situations, drawn fresh each time, alongside kickoffs and random positions.
 

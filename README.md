@@ -26,7 +26,7 @@ Every scored bot's first episodes can be watched in the browser, in 3D:
 
 ## Try it
 
-Needs Python 3.11 or newer. Works on Linux, macOS (Apple Silicon) and Windows.
+Needs Python 3.11, 3.12 or 3.13. Tested on Linux, macOS (Apple Silicon) and Windows in CI.
 
 ```bash
 git clone https://github.com/yogyam/boost-arena.git
@@ -99,7 +99,7 @@ From any other framework, export your policy network to ONNX with an input of sh
 
 See [RULES.md](RULES.md). In short: the project is free and non-commercial, bots are for the simulator and for research, nothing here may be used to play online against people, the project never publishes model files, and each person may have three bots and three scorings per month.
 
-Found a security problem? See [SECURITY.md](SECURITY.md). Maintainer notes are in [docs/MAINTAINING.md](docs/MAINTAINING.md), and changes in [CHANGELOG.md](CHANGELOG.md).
+Want to change something? See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security problem? See [SECURITY.md](SECURITY.md). Maintainer notes are in [docs/MAINTAINING.md](docs/MAINTAINING.md), and changes in [CHANGELOG.md](CHANGELOG.md).
 
 ## Tests
 

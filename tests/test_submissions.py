@@ -14,9 +14,23 @@ from boost_arena.runner import OFFICIAL_EPISODES, OFFICIAL_SEED, SEASON
 from boost_arena.sealed import generate_key_pair
 from boost_arena.site import build_site
 from boost_arena.submissions import (
-    MODEL_SUFFIX, REPLAYS_SUFFIX, SubmissionError, check_not_a_copy, check_pull_request, load_manifest, make_submission,
-    open_submissions, read_replays, score_model, score_submission, submissions_to_score, validate_published_result,
-    validate_replays_document, validate_result_document, verify_submission, write_replays,
+    MODEL_SUFFIX,
+    REPLAYS_SUFFIX,
+    SubmissionError,
+    check_not_a_copy,
+    check_pull_request,
+    load_manifest,
+    make_submission,
+    open_submissions,
+    read_replays,
+    score_model,
+    score_submission,
+    submissions_to_score,
+    validate_published_result,
+    validate_replays_document,
+    validate_result_document,
+    verify_submission,
+    write_replays,
 )
 
 
@@ -72,10 +86,10 @@ def test_submit_verify_score_and_publish(tmp_path, keys, model_path):
     assert "error" not in document, document.get("error")
     assert len(document["results"]) == 6
     assert 0 <= document["overall_score"] <= 100
-    assert document["official"] is False   # Only four episodes
+    assert document["official"] is False  # Only four episodes
     validate_result_document(document)
     validate_replays_document(replays)
-    assert all(len(episodes) == 4 for episodes in replays["tasks"].values())   # Fewer episodes than are usually recorded
+    assert all(len(episodes) == 4 for episodes in replays["tasks"].values())  # Fewer episodes than are usually recorded
 
     results.mkdir()
     (results / "test-bot.json").write_text(json.dumps(document))
@@ -94,11 +108,11 @@ def test_submit_verify_score_and_publish(tmp_path, keys, model_path):
     page = build_site(str(results), str(tmp_path / "site"), str(replay_folder))
     text = open(page, encoding="utf-8").read()
     assert "Test Bot" in text and "Acts at random" in text and "not endorsed by Epic" in text
-    assert 'replay.html?bot=test-bot' in text
+    assert "replay.html?bot=test-bot" in text
     assert (tmp_path / "site" / "replays" / ("test-bot" + REPLAYS_SUFFIX)).is_file()
     assert (tmp_path / "site" / "vendor" / "three.module.js").is_file()
     viewer = open(tmp_path / "site" / "replay.html", encoding="utf-8").read()
-    assert "Empty-net finish" in viewer and "https://" not in viewer.split("<script")[1]   # No script from other hosts
+    assert "Empty-net finish" in viewer and "https://" not in viewer.split("<script")[1]  # No script from other hosts
     assert read_replays(str(replay_folder / ("test-bot" + REPLAYS_SUFFIX))) == replays
 
 
@@ -141,11 +155,15 @@ def test_a_model_that_fails_while_running_is_a_recorded_failure(tmp_path, keys, 
     bias = numpy_helper.from_array(np.zeros(90, dtype=np.float32), "bias")
     half = numpy_helper.from_array(np.array(0.5, dtype=np.float32), "half")
     graph = helper.make_graph(
-        [helper.make_node("Add", ["obs", "half"], ["shifted"]), helper.make_node("Log", ["shifted"], ["logged"]),
-         helper.make_node("Gemm", ["logged", "weight", "bias"], ["logits"], transB=1)],
+        [
+            helper.make_node("Add", ["obs", "half"], ["shifted"]),
+            helper.make_node("Log", ["shifted"], ["logged"]),
+            helper.make_node("Gemm", ["logged", "weight", "bias"], ["logits"], transB=1),
+        ],
         "fragile",
         [helper.make_tensor_value_info("obs", TensorProto.FLOAT, ["N", 53])],
-        [helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["N", 90])], [weight, bias, half],
+        [helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["N", 90])],
+        [weight, bias, half],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 8
@@ -166,8 +184,13 @@ def test_a_copied_submission_is_refused(tmp_path, keys, model_path):
     their_manifest = json.load(open(os.path.join(theirs, "submission.json")))
 
     mine = make(tmp_path, keys, model_path, name="My Bot", github="me")
-    edit_manifest(mine, model_url=their_manifest["model_url"], sealed_sha256=their_manifest["sealed_sha256"],
-                  model_sha256=their_manifest["model_sha256"], model_bytes=their_manifest["model_bytes"])
+    edit_manifest(
+        mine,
+        model_url=their_manifest["model_url"],
+        sealed_sha256=their_manifest["sealed_sha256"],
+        model_sha256=their_manifest["model_sha256"],
+        model_bytes=their_manifest["model_bytes"],
+    )
     with pytest.raises(SubmissionError, match="already submitted"):
         check_not_a_copy(load_manifest(mine), str(tmp_path / "submissions"))
     with pytest.raises(SubmissionError, match="already submitted"):
@@ -187,7 +210,7 @@ def test_pull_request_checks(tmp_path, keys, model_path):
     folder = make(tmp_path, keys, model_path, github="tester")
     submissions, results = str(tmp_path / "submissions"), str(tmp_path / "results")
     check_pull_request([folder], "tester", submissions, results)
-    check_pull_request([folder], "Tester", submissions, results)   # Logins are not case sensitive
+    check_pull_request([folder], "Tester", submissions, results)  # Logins are not case sensitive
     with pytest.raises(SubmissionError, match="pull request is from"):
         check_pull_request([folder], "someone-else", submissions, results)
     with pytest.raises(SubmissionError, match="valid GitHub login"):
@@ -197,20 +220,23 @@ def test_pull_request_checks(tmp_path, keys, model_path):
     os.makedirs(results)
     for i in range(2):
         other = make(tmp_path, keys, model_path, name=f"Older {i}", github="tester")
-        (tmp_path / "results" / f"older-{i}.json").write_text(json.dumps({
-            "scored_at": "2999-01-01T00:00:00Z", "manifest": load_manifest(other).to_dict()}))
+        (tmp_path / "results" / f"older-{i}.json").write_text(
+            json.dumps({"scored_at": "2999-01-01T00:00:00Z", "manifest": load_manifest(other).to_dict()})
+        )
     check_pull_request([folder], "tester", submissions, results)
     third = make(tmp_path, keys, model_path, name="Older 2", github="tester")
-    (tmp_path / "results" / "older-2.json").write_text(json.dumps({
-        "scored_at": "2999-01-01T00:00:00Z", "manifest": load_manifest(third).to_dict()}))
+    (tmp_path / "results" / "older-2.json").write_text(
+        json.dumps({"scored_at": "2999-01-01T00:00:00Z", "manifest": load_manifest(third).to_dict()})
+    )
     with pytest.raises(SubmissionError, match="limit"):
         check_pull_request([folder], "tester", submissions, results)
-    check_pull_request([folder], "tester", submissions, results, exempt=("Tester",))   # Baselines are exempt
+    check_pull_request([folder], "tester", submissions, results, exempt=("Tester",))  # Baselines are exempt
     # Updating one of those three is fine: it is scored again, not in addition
     check_pull_request([third], "tester", submissions, results)
     # Old scorings do not count
-    (tmp_path / "results" / "older-2.json").write_text(json.dumps({
-        "scored_at": "2000-01-01T00:00:00Z", "manifest": load_manifest(third).to_dict()}))
+    (tmp_path / "results" / "older-2.json").write_text(
+        json.dumps({"scored_at": "2000-01-01T00:00:00Z", "manifest": load_manifest(third).to_dict()})
+    )
     check_pull_request([folder], "tester", submissions, results)
 
 
@@ -262,16 +288,36 @@ def test_local_files_are_refused_by_default(tmp_path, keys, model_path):
 def test_downloads_only_from_public_https(tmp_path, keys, model_path):
     from boost_arena.submissions import fetch
 
-    for url in ("http://example.com/x", "https://localhost/x", "https://127.0.0.1/x", "https://169.254.169.254/latest",
-                "https://10.0.0.1/x", "ftp://example.com/x"):
+    for url in (
+        "http://example.com/x",
+        "https://localhost/x",
+        "https://127.0.0.1/x",
+        "https://169.254.169.254/latest",
+        "https://10.0.0.1/x",
+        "ftp://example.com/x",
+    ):
         with pytest.raises(SubmissionError):
             fetch(url)
 
 
 def test_replay_validation_catches_bad_shapes():
-    good = {"slug": "x", "fps": 15, "interface_version": 1, "task_set_version": 1, "season": SEASON,
-            "tasks": {"save": [{"episode": 0, "outcome": "success", "seconds": 1.0,
-                                "frames": [{"ball": [0, 0, 93.15], "cars": [[0, 0, 17, 1, 0, 0, 0, 0, 1, 1]]}]}]}}
+    good = {
+        "slug": "x",
+        "fps": 15,
+        "interface_version": 1,
+        "task_set_version": 1,
+        "season": SEASON,
+        "tasks": {
+            "save": [
+                {
+                    "episode": 0,
+                    "outcome": "success",
+                    "seconds": 1.0,
+                    "frames": [{"ball": [0, 0, 93.15], "cars": [[0, 0, 17, 1, 0, 0, 0, 0, 1, 1]]}],
+                }
+            ]
+        },
+    }
     validate_replays_document(good)
     bad = json.loads(json.dumps(good))
     bad["tasks"]["save"][0]["frames"][0]["cars"][0][0] = "nan"
@@ -369,7 +415,7 @@ def test_result_validation_catches_forged_documents(official_document):
         validate_result_document(bad, official_only=True)
     bad = forged(document)
     bad["manifest"]["slug"] = "someone-elses-bot"
-    validate_result_document(bad)   # The shape is fine; the publish check below catches it
+    validate_result_document(bad)  # The shape is fine; the publish check below catches it
 
 
 def test_published_results_must_match_the_repository(tmp_path, official_document):
@@ -399,7 +445,7 @@ def test_published_results_must_match_the_repository(tmp_path, official_document
 
 def test_names_in_the_page_are_escaped(tmp_path, keys, model_path):
     private, _ = keys
-    folder = make(tmp_path, keys, model_path, name='<img src=x onerror=alert(1)> Bot')
+    folder = make(tmp_path, keys, model_path, name="<img src=x onerror=alert(1)> Bot")
     document, _ = score_submission(folder, private, allow_local=True, episodes=2)
     results = tmp_path / "results"
     results.mkdir()

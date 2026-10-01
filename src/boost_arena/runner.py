@@ -25,10 +25,10 @@ class TaskResult:
     task: str
     episodes: int
     successes: int
-    conceded: int             # Episodes that ended with the ball in the bot's own goal
-    timeouts: int             # Episodes that ran out of time without success
+    conceded: int  # Episodes that ended with the ball in the bot's own goal
+    timeouts: int  # Episodes that ran out of time without success
     success_rate: float
-    success_rate_low: float   # 95% confidence interval
+    success_rate_low: float  # 95% confidence interval
     success_rate_high: float
     mean_seconds_to_score: float  # Over episodes won by scoring, 0 if there were none
     time_limit: float
@@ -40,7 +40,7 @@ class TaskResult:
     task_set_version: int = TASK_SET_VERSION
     simulator_version: str = SIMULATOR_VERSION
     benchmark_version: str = __version__
-    replays: list = field(default_factory=list, repr=False, compare=False)   # Not part of the result document
+    replays: list = field(default_factory=list, repr=False, compare=False)  # Not part of the result document
 
     def to_dict(self):
         document = asdict(self)
@@ -56,7 +56,9 @@ def _frame(ball, cars):
     return {
         "ball": [round(float(v), 1) for v in ball.pos],
         "cars": [
-            [round(float(v), 1) for v in car.pos] + [round(float(v), 3) for v in car.forward] + [round(float(v), 3) for v in car.up]
+            [round(float(v), 1) for v in car.pos]
+            + [round(float(v), 3) for v in car.forward]
+            + [round(float(v), 3) for v in car.up]
             + [int(car.is_on_ground) + 2 * int(car.is_demoed)]
             for car in cars
         ],
@@ -87,8 +89,17 @@ def _episode_rngs(task: Task, seed: int, episode: int):
     return np.random.default_rng([seed, task_id, episode, 0]), np.random.default_rng([seed, task_id, episode, 1])
 
 
-def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed: int = OFFICIAL_SEED, sampled: bool = True,
-             arenas: int = 32, time_limit: float = None, on_progress=None, record_first: int = 0) -> TaskResult:
+def run_task(
+    policy: Policy,
+    task: Task,
+    episodes: int = OFFICIAL_EPISODES,
+    seed: int = OFFICIAL_SEED,
+    sampled: bool = True,
+    arenas: int = 32,
+    time_limit: float = None,
+    on_progress=None,
+    record_first: int = 0,
+) -> TaskResult:
     """Scores `policy` on `task`.
 
     `time_limit` overrides the task's own limit. A result with an override, with a different
@@ -142,7 +153,7 @@ def run_task(policy: Policy, task: Task, episodes: int = OFFICIAL_EPISODES, seed
 
         actions = policy.act(obs, masks, [action_rngs[slot] for slot in slots] if sampled else None)
 
-        for slot, action, (ball, cars) in zip(slots, actions, states):
+        for slot, action, (ball, cars) in zip(slots, actions, states, strict=True):
             game = games[slot]
             game.step([action] + [0] * (len(game.cars) - 1), scripted=task.scripted(game, kept[slot], ball, cars))
             if recording[slot] is not None:

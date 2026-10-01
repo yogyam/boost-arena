@@ -8,8 +8,15 @@ from onnx import TensorProto, helper, numpy_helper
 from boost_arena.policy import InvalidModel, Policy, check_model
 
 
-def make_model(nodes=None, input_shape=("N", 53), output_shape=("N", 90), initializers=None, opset=17,
-               input_type=TensorProto.FLOAT, domain=""):
+def make_model(
+    nodes=None,
+    input_shape=("N", 53),
+    output_shape=("N", 90),
+    initializers=None,
+    opset=17,
+    input_type=TensorProto.FLOAT,
+    domain="",
+):
     rng = np.random.default_rng(0)
     if initializers is None:
         initializers = [
@@ -19,7 +26,8 @@ def make_model(nodes=None, input_shape=("N", 53), output_shape=("N", 90), initia
     if nodes is None:
         nodes = [helper.make_node("Gemm", ["obs", "weight", "bias"], ["logits"], transB=1)]
     graph = helper.make_graph(
-        nodes, "test",
+        nodes,
+        "test",
         [helper.make_tensor_value_info("obs", input_type, list(input_shape))],
         [helper.make_tensor_value_info("logits", TensorProto.FLOAT, list(output_shape))],
         initializers,
@@ -55,13 +63,16 @@ def test_drawn_actions_repeat_with_the_same_seed():
     np.testing.assert_array_equal(first, second)
 
 
-@pytest.mark.parametrize("kwargs, reason", [
-    (dict(input_shape=("N", 52)), "shape"),
-    (dict(output_shape=("N", 89)), "shape"),
-    (dict(input_shape=(1, 53)), "first dimension"),
-    (dict(input_type=TensorProto.DOUBLE), "32-bit"),
-    (dict(opset=99), "operation set version"),
-])
+@pytest.mark.parametrize(
+    "kwargs, reason",
+    [
+        (dict(input_shape=("N", 52)), "shape"),
+        (dict(output_shape=("N", 89)), "shape"),
+        (dict(input_shape=(1, 53)), "first dimension"),
+        (dict(input_type=TensorProto.DOUBLE), "32-bit"),
+        (dict(opset=99), "operation set version"),
+    ],
+)
 def test_refuses_the_wrong_shape_or_type(kwargs, reason):
     with pytest.raises(InvalidModel, match=reason):
         check_model(make_model(**kwargs))
@@ -129,7 +140,7 @@ def test_refuses_models_whose_values_would_be_huge():
     """A few parameters can still describe a network that needs gigabytes for one decision."""
     nodes = [helper.make_node("Gemm", ["obs", "weight", "bias"], ["x0"], transB=1)]
     previous = "x0"
-    for i in range(24):   # Doubling 24 times: 90 x 2^24 values per car
+    for i in range(24):  # Doubling 24 times: 90 x 2^24 values per car
         nodes.append(helper.make_node("Concat", [previous, previous], [f"x{i + 1}"], axis=1))
         previous = f"x{i + 1}"
     nodes.append(helper.make_node("Slice", [previous, "start", "end", "axes"], ["logits"]))

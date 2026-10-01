@@ -11,23 +11,23 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import keeper
-from .interface import BLUE, ORANGE
+from .interface import (
+    BALL_REST_HEIGHT,
+    BLUE,
+    CAR_REST_HEIGHT,
+    FIELD_HALF_LENGTH,
+    FIELD_HALF_WIDTH,
+    GOAL_LINE,
+    GRAVITY,
+    ORANGE,
+)
 from .sim import Game, ball_path
 
 TASK_SET_VERSION = 1
 
-BALL_REST_HEIGHT = 93.15
-CAR_REST_HEIGHT = 17.0
-GRAVITY = 650.0
-
-FIELD_HALF_WIDTH = 4096
-FIELD_HALF_LENGTH = 5120
-GOAL_HALF_WIDTH = 893
-
-GOAL_LINE = 5124.25 + 91.25   # The ball's centre is past this when it is in a goal
 
 SUCCESS = "success"
-CONCEDED = "conceded"   # The ball went into the bot's own goal
+CONCEDED = "conceded"  # The ball went into the bot's own goal
 
 
 def _degrees(rng, spread):
@@ -61,9 +61,9 @@ class Task:
     key: str
     name: str
     description: str
-    time_limit: float          # Seconds
+    time_limit: float  # Seconds
     with_opponent: bool = False
-    survive: bool = False      # True if lasting until the time limit is the success
+    survive: bool = False  # True if lasting until the time limit is the success
 
     def setup(self, game: Game, rng: np.random.Generator):
         """Sets up the situation. May return something to keep for the episode, passed to scripted()."""
@@ -120,7 +120,9 @@ class PassFinish(Task):
         facing = math.pi / 2 + _degrees(rng, 25)
         pace = rng.uniform(0, 600)
         game.set_car(
-            0, (rng.uniform(-1200, 1200), rng.uniform(-1500, 300), CAR_REST_HEIGHT), yaw=facing,
+            0,
+            (rng.uniform(-1200, 1200), rng.uniform(-1500, 300), CAR_REST_HEIGHT),
+            yaw=facing,
             vel=(pace * math.cos(facing), pace * math.sin(facing), 0),
         )
 
@@ -159,7 +161,9 @@ class AerialCross(Task):
         facing = math.pi / 2 + _degrees(rng, 30)
         pace = rng.uniform(0, 800)
         game.set_car(
-            0, (rng.uniform(-1000, 1000), rng.uniform(-500, 1500), CAR_REST_HEIGHT), yaw=facing,
+            0,
+            (rng.uniform(-1000, 1000), rng.uniform(-500, 1500), CAR_REST_HEIGHT),
+            yaw=facing,
             vel=(pace * math.cos(facing), pace * math.sin(facing), 0),
         )
 
@@ -172,10 +176,13 @@ class Save(Task):
         aim = np.array([rng.uniform(-750, 750), -FIELD_HALF_LENGTH, rng.uniform(100, 500)])
         flat = aim[:2] - start[:2]
         seconds = float(np.linalg.norm(flat)) / rng.uniform(1400, 2600)
-        velocity = np.array([
-            flat[0] / seconds, flat[1] / seconds,
-            (aim[2] - start[2]) / seconds + 0.5 * GRAVITY * seconds,
-        ])
+        velocity = np.array(
+            [
+                flat[0] / seconds,
+                flat[1] / seconds,
+                (aim[2] - start[2]) / seconds + 0.5 * GRAVITY * seconds,
+            ]
+        )
         return start, velocity
 
     def setup(self, game, rng):
@@ -212,27 +219,41 @@ TASKS = {
     task.key: task
     for task in [
         EmptyNetFinish(
-            key="empty_net", name="Empty-net finish", time_limit=20.0,
+            key="empty_net",
+            name="Empty-net finish",
+            time_limit=20.0,
             description="Score from a still ball in the attacking half, with nobody in goal.",
         ),
         PassFinish(
-            key="pass", name="Pass finish", time_limit=20.0,
+            key="pass",
+            name="Pass finish",
+            time_limit=20.0,
             description="Score from a ball rolling in from the wing, with nobody in goal.",
         ),
         FallingBall(
-            key="falling_ball", name="Falling ball", time_limit=20.0,
+            key="falling_ball",
+            name="Falling ball",
+            time_limit=20.0,
             description="Score from a ball dropping out of the air, with nobody in goal.",
         ),
         AerialCross(
-            key="cross", name="Aerial cross", time_limit=15.0,
+            key="cross",
+            name="Aerial cross",
+            time_limit=15.0,
             description="Score from a high cross arcing in from the wing, with nobody in goal.",
         ),
         Save(
-            key="save", name="Save", time_limit=6.0, survive=True,
+            key="save",
+            name="Save",
+            time_limit=6.0,
+            survive=True,
             description="Keep out a shot that is on target, for six seconds.",
         ),
         Penalty(
-            key="penalty", name="Penalty shoot-out", time_limit=10.0, with_opponent=True,
+            key="penalty",
+            name="Penalty shoot-out",
+            time_limit=10.0,
+            with_opponent=True,
             description="Score from a still ball past the reference keeper.",
         ),
     ]
