@@ -1,11 +1,19 @@
 # Keeps the pinned actions and the Python dependencies up to date through pull requests.
+# Major versions are left alone: the scoring pipeline is proven against the pinned ones,
+# and a major bump is a deliberate change made by hand with a test run.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
