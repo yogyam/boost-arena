@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 300" width="1180" height="300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#898781"/>
+    </marker>
+  </defs>
+  <rect width="1180" height="300" rx="12" fill="#f9f9f7"/>
+
+  <!-- Lanes -->
+  <text x="24" y="40" fill="#898781" font-size="12" font-weight="600" letter-spacing="0.08em">YOU</text>
+  <text x="24" y="196" fill="#898781" font-size="12" font-weight="600" letter-spacing="0.08em">GITHUB ACTIONS, ON MERGE</text>
+  <line x1="24" y1="164" x2="1156" y2="164" stroke="#e1e0d9"/>
+
+  <!-- Row 1: entrant side -->
+  <g>
+    <rect x="24" y="56" width="200" height="84" rx="10" fill="#fcfcfb" stroke="#d5e5f9" stroke-width="1.5"/>
+    <text x="40" y="84" fill="#2a78d6" font-weight="700">1 · Train</text>
+    <text x="40" y="106" fill="#52514e" font-size="13">Any framework, any method.</text>
+    <text x="40" y="124" fill="#52514e" font-size="13">53 inputs, 90 actions.</text>
+  </g>
+  <line x1="224" y1="98" x2="262" y2="98" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="264" y="56" width="200" height="84" rx="10" fill="#fcfcfb" stroke="#d5e5f9" stroke-width="1.5"/>
+    <text x="280" y="84" fill="#2a78d6" font-weight="700">2 · Export</text>
+    <text x="280" y="106" fill="#52514e" font-size="13">Policy network as ONNX.</text>
+    <text x="280" y="124" fill="#52514e" font-size="13"><tspan font-family="ui-monospace, Menlo, monospace" font-size="12">boost-arena check</tspan> tests it.</text>
+  </g>
+  <line x1="464" y1="98" x2="502" y2="98" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="504" y="56" width="200" height="84" rx="10" fill="#fcfcfb" stroke="#d5e5f9" stroke-width="1.5"/>
+    <text x="520" y="84" fill="#2a78d6" font-weight="700">3 · Seal</text>
+    <text x="520" y="106" fill="#52514e" font-size="13">Encrypted to the project key.</text>
+    <text x="520" y="124" fill="#52514e" font-size="13">Only the scorer can open it.</text>
+  </g>
+  <line x1="704" y1="98" x2="742" y2="98" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="744" y="56" width="200" height="84" rx="10" fill="#fcfcfb" stroke="#d5e5f9" stroke-width="1.5"/>
+    <text x="760" y="84" fill="#2a78d6" font-weight="700">4 · Submit</text>
+    <text x="760" y="106" fill="#52514e" font-size="13">Host the sealed file yourself.</text>
+    <text x="760" y="124" fill="#52514e" font-size="13">Open a pull request.</text>
+  </g>
+  <line x1="944" y1="98" x2="982" y2="98" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="984" y="56" width="172" height="84" rx="10" fill="#fcfcfb" stroke="#e1e0d9" stroke-width="1.5"/>
+    <text x="1000" y="84" fill="#0b0b0b" font-weight="700">Review</text>
+    <text x="1000" y="106" fill="#52514e" font-size="13">A maintainer checks</text>
+    <text x="1000" y="124" fill="#52514e" font-size="13">the manifest and merges.</text>
+  </g>
+
+  <!-- Down into the service lane -->
+  <path d="M 1070 140 L 1070 164 L 1070 180 L 964 180 L 964 206" fill="none" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: service side, right to left -->
+  <g>
+    <rect x="864" y="208" width="200" height="72" rx="10" fill="#fcfcfb" stroke="#e1e0d9" stroke-width="1.5"/>
+    <text x="880" y="234" fill="#0b0b0b" font-weight="700">Score</text>
+    <text x="880" y="254" fill="#52514e" font-size="13">6 tasks × 1,000 episodes,</text>
+    <text x="880" y="270" fill="#52514e" font-size="13">same situations for every bot.</text>
+  </g>
+  <line x1="862" y1="244" x2="824" y2="244" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="622" y="208" width="200" height="72" rx="10" fill="#fcfcfb" stroke="#e1e0d9" stroke-width="1.5"/>
+    <text x="638" y="234" fill="#0b0b0b" font-weight="700">Duel</text>
+    <text x="638" y="254" fill="#52514e" font-size="13">Penalty and kickoff duels</text>
+    <text x="638" y="270" fill="#52514e" font-size="13">against every scored bot.</text>
+  </g>
+  <line x1="620" y1="244" x2="582" y2="244" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="380" y="208" width="200" height="72" rx="10" fill="#fcfcfb" stroke="#e1e0d9" stroke-width="1.5"/>
+    <text x="396" y="234" fill="#0b0b0b" font-weight="700">Publish</text>
+    <text x="396" y="254" fill="#52514e" font-size="13">Results, replays and duel</text>
+    <text x="396" y="270" fill="#52514e" font-size="13">files are committed.</text>
+  </g>
+  <line x1="378" y1="244" x2="340" y2="244" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="24" y="208" width="314" height="72" rx="10" fill="#2a78d6"/>
+    <text x="40" y="234" fill="#ffffff" font-weight="700">Leaderboard</text>
+    <text x="40" y="254" fill="#ffffff" font-size="13" opacity="0.92">Scores, confidence intervals, 3D replays</text>
+    <text x="40" y="270" fill="#ffffff" font-size="13" opacity="0.92">and head-to-head ratings, on GitHub Pages.</text>
+  </g>
+</svg>

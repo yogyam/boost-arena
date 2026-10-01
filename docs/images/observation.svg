@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 250" width="1180" height="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <rect width="1180" height="250" rx="12" fill="#f9f9f7"/>
+  <text x="24" y="34" fill="#0b0b0b" font-size="15" font-weight="700">One observation: 53 float32 values, then the model returns 90 logits</text>
+  <text x="24" y="54" fill="#52514e">Each cell is one number. The index is written under the strip; the orange car sees X and Y negated so both teams attack +Y.</text>
+
+  <!-- 53 cells, 20px each, starting at x=60 -->
+  <g>
+    <!-- Ball: 9 -->
+    <rect x="60" y="78" width="60" height="40" fill="#2a78d6"/>
+    <rect x="120" y="78" width="60" height="40" fill="#4d8edc"/>
+    <rect x="180" y="78" width="60" height="40" fill="#7bacE6"/>
+    <!-- Previous action: 8 -->
+    <rect x="240" y="78" width="160" height="40" fill="#c3c2b7"/>
+    <!-- Own car: 18 -->
+    <rect x="400" y="78" width="60" height="40" fill="#2a78d6"/>
+    <rect x="460" y="78" width="60" height="40" fill="#4d8edc"/>
+    <rect x="520" y="78" width="60" height="40" fill="#7bacE6"/>
+    <rect x="580" y="78" width="60" height="40" fill="#2a78d6"/>
+    <rect x="640" y="78" width="60" height="40" fill="#4d8edc"/>
+    <rect x="700" y="78" width="20" height="40" fill="#1f5ea8"/>
+    <rect x="720" y="78" width="20" height="40" fill="#2a78d6"/>
+    <rect x="740" y="78" width="20" height="40" fill="#1f5ea8"/>
+    <!-- Opponent: 18 -->
+    <rect x="760" y="78" width="60" height="40" fill="#e07a1f"/>
+    <rect x="820" y="78" width="60" height="40" fill="#e8964f"/>
+    <rect x="880" y="78" width="60" height="40" fill="#f0b27f"/>
+    <rect x="940" y="78" width="60" height="40" fill="#e07a1f"/>
+    <rect x="1000" y="78" width="60" height="40" fill="#e8964f"/>
+    <rect x="1060" y="78" width="20" height="40" fill="#b8620f"/>
+    <rect x="1080" y="78" width="20" height="40" fill="#e07a1f"/>
+    <rect x="1100" y="78" width="20" height="40" fill="#b8620f"/>
+    <!-- cell separators -->
+    <g stroke="#f9f9f7" stroke-width="1.5">
+      <line x1="80" y1="78" x2="80" y2="118"/><line x1="100" y1="78" x2="100" y2="118"/><line x1="140" y1="78" x2="140" y2="118"/><line x1="160" y1="78" x2="160" y2="118"/>
+      <line x1="200" y1="78" x2="200" y2="118"/><line x1="220" y1="78" x2="220" y2="118"/>
+      <line x1="260" y1="78" x2="260" y2="118"/><line x1="280" y1="78" x2="280" y2="118"/><line x1="300" y1="78" x2="300" y2="118"/><line x1="320" y1="78" x2="320" y2="118"/><line x1="340" y1="78" x2="340" y2="118"/><line x1="360" y1="78" x2="360" y2="118"/><line x1="380" y1="78" x2="380" y2="118"/>
+      <line x1="420" y1="78" x2="420" y2="118"/><line x1="440" y1="78" x2="440" y2="118"/><line x1="480" y1="78" x2="480" y2="118"/><line x1="500" y1="78" x2="500" y2="118"/><line x1="540" y1="78" x2="540" y2="118"/><line x1="560" y1="78" x2="560" y2="118"/><line x1="600" y1="78" x2="600" y2="118"/><line x1="620" y1="78" x2="620" y2="118"/><line x1="660" y1="78" x2="660" y2="118"/><line x1="680" y1="78" x2="680" y2="118"/>
+      <line x1="780" y1="78" x2="780" y2="118"/><line x1="800" y1="78" x2="800" y2="118"/><line x1="840" y1="78" x2="840" y2="118"/><line x1="860" y1="78" x2="860" y2="118"/><line x1="900" y1="78" x2="900" y2="118"/><line x1="920" y1="78" x2="920" y2="118"/><line x1="960" y1="78" x2="960" y2="118"/><line x1="980" y1="78" x2="980" y2="118"/><line x1="1020" y1="78" x2="1020" y2="118"/><line x1="1040" y1="78" x2="1040" y2="118"/>
+    </g>
+    <!-- group gaps -->
+    <g stroke="#f9f9f7" stroke-width="4">
+      <line x1="240" y1="74" x2="240" y2="122"/><line x1="400" y1="74" x2="400" y2="122"/><line x1="760" y1="74" x2="760" y2="122"/>
+    </g>
+  </g>
+
+  <!-- Index labels -->
+  <g fill="#898781" font-size="11">
+    <text x="60" y="134">0</text><text x="233" y="134" text-anchor="end">8</text>
+    <text x="243" y="134">9</text><text x="396" y="134" text-anchor="end">16</text>
+    <text x="403" y="134">17</text><text x="756" y="134" text-anchor="end">34</text>
+    <text x="763" y="134">35</text><text x="1118" y="134" text-anchor="end">52</text>
+  </g>
+
+  <!-- Group labels -->
+  <g fill="#0b0b0b" font-weight="700">
+    <text x="60" y="160">Ball · 9</text>
+    <text x="240" y="160">Previous action · 8</text>
+    <text x="400" y="160">The car itself · 18</text>
+    <text x="760" y="160">Opponent · 18</text>
+  </g>
+  <g fill="#52514e" font-size="12">
+    <text x="60" y="178">position, velocity,</text>
+    <text x="60" y="194">angular velocity</text>
+    <text x="240" y="178">the 8 controls it chose</text>
+    <text x="240" y="194">last time; zeros at first</text>
+    <text x="400" y="178">position · forward · up · velocity · angular velocity ·</text>
+    <text x="400" y="194">on ground · can jump · demolished</text>
+    <text x="760" y="178">same 18 numbers for the other car;</text>
+    <text x="760" y="194">all zeros when the bot plays alone</text>
+  </g>
+
+  <!-- Scaling note -->
+  <text x="60" y="228" fill="#898781" font-size="12">Scaling: positions ÷ (4096, 5120, 2044) · velocities ÷ 2300 · angular velocities ÷ 5.5 · direction vectors and flags unscaled</text>
+</svg>

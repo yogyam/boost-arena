@@ -36,6 +36,8 @@ Every result comes with a 95% confidence interval. With 1,000 episodes it is abo
 
 ## The situations
 
+![Twelve seeded situations per task, from above](images/tasks.png)
+
 Distances are in Unreal units. "Behind the ball" means on the side of the ball away from the goal the bot attacks.
 
 ### Empty-net finish

@@ -290,6 +290,15 @@ async function loadReplays(url) {
     showTask(wanted && data.tasks[wanted] ? wanted : Object.keys(data.tasks)[0]);
     const wantedEpisode = parseInt(params.get("episode") || "0", 10);
     if (wantedEpisode > 0 && wantedEpisode < data.tasks[task].length) showEpisode(wantedEpisode);
+    const wantedCamera = params.get("camera");
+    if (wantedCamera === "stadium" || wantedCamera === "follow") pickCamera(wantedCamera);
+    // `t` shows one paused moment, which is how the documentation's pictures are taken
+    if (params.has("t")) {
+      time = Math.max(0, parseFloat(params.get("t")) || 0);
+      setPlaying(false);
+      scrub.value = Math.round(time * data.fps);
+      updateTime();
+    }
     requestAnimationFrame(tick);
   } catch (err) {
     status.textContent = String(err.message || err);

@@ -40,6 +40,8 @@ Distances are in Unreal units (1 unit is 1 cm). Z is up. The blue goal is at Y =
 
 ## Observation
 
+![The 53 observation values: ball, previous action, the car itself, the opponent](images/observation.svg)
+
 53 numbers, in this order:
 
 | Index | Count | Content | Scaling |

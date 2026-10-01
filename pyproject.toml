@@ -24,7 +24,7 @@ dependencies = [
 convert = ["torch"]
 # The starter kit: training on the open RLGym tools
 train = ["torch", "rlgym-learn", "rlgym-learn-algos"]
-dev = ["pytest"]
+dev = ["pytest", "matplotlib"]   # matplotlib only for tools/make_figures.py
 
 [project.scripts]
 boost-arena = "boost_arena.cli:main"

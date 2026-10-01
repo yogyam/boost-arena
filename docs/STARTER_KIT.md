@@ -55,6 +55,10 @@ If you changed `--layers` when training, pass the same value to `export`. Then f
 
 **Situations from the benchmark itself.** From phase 2 the bot practises the benchmark's own task situations, drawn fresh each time, alongside kickoffs and random positions.
 
+**What to expect.** The bot on the leaderboard called "Starter kit, 45 minutes" is what the kit produced after 72 million steps on a laptop, with nothing changed. The reproduction of the paper's full curriculum, trained for 1.3 billion steps, is the top entry; the gap between them is what training time and better rewards buy.
+
+![Success rate of every bot on every task](images/baselines.png)
+
 **The rewards** are a small set: touching the ball, hitting it hard, moving towards it, facing it, being in the air, speed, sending the ball towards the goal, and scoring. They live in [`src/boost_arena/starter/env.py`](../src/boost_arena/starter/env.py).
 
 ## Ideas for doing better

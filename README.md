@@ -6,7 +6,11 @@ Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-so
 
 > **Status: open for entries.** Scoring, submissions, the leaderboard, replays, duels and a training starter kit all work.
 
+<p align="center"><a href="https://yogyam.github.io/boost-arena/"><img src="docs/images/leaderboard.png" alt="The Boost Arena leaderboard" width="800"></a></p>
+
 ## How it works
+
+<p align="center"><img src="docs/images/pipeline.svg" alt="Train, export, seal, submit; then the scoring service scores, duels and publishes" width="900"></p>
 
 1. **Everyone uses the same interface.** A bot sees 53 numbers describing the ball and cars, and picks one of 90 actions, 15 times a second. See [docs/INTERFACE.md](docs/INTERFACE.md).
 2. **You train your own way.** Any framework, any method, any hardware.
@@ -15,6 +19,10 @@ Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-so
 5. **The leaderboard** is at https://yogyam.github.io/boost-arena/ and is rebuilt after every scoring run. Every bot's first five episodes of each task can be watched in the browser, and they are the same situations for every bot.
 
 To enter, see [docs/SUBMITTING.md](docs/SUBMITTING.md).
+
+Every scored bot's first episodes can be watched in the browser, in 3D:
+
+<p align="center"><a href="https://yogyam.github.io/boost-arena/replay.html?bot=pisty-reproduction-phase-3"><img src="docs/images/replay.gif" alt="The replay viewer: a bot beats the reference keeper, then finishes a pass" width="720"></a></p>
 
 ## Try it
 
@@ -60,7 +68,13 @@ Scores from your own machine are for your own use. Official leaderboard scores w
 | Save | Keep out a shot that is on target | None | 6 s |
 | Penalty shoot-out | Score from a still ball | The reference keeper | 10 s |
 
+<p align="center"><img src="docs/images/tasks.png" alt="Twelve example situations of each task, seen from above" width="900"></p>
+
 Each task is played 1,000 times. The overall score is the average success rate, out of 100. See [docs/TASKS.md](docs/TASKS.md) for the details, including how the reference keeper behaves.
+
+This is how the bots on the leaderboard do so far. Nobody can make a save yet.
+
+<p align="center"><img src="docs/images/baselines.png" alt="Success rate of every bot on every task" width="900"></p>
 
 ## Duels
 
