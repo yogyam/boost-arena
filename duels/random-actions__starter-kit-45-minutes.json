@@ -1,9 +1,9 @@
 {
   "a": "random-actions",
   "b": "starter-kit-45-minutes",
-  "a_manifest_sha256": "1cd8bdffb53c735fb6e3c6f5ec9e2f4aed6a7e573feb8a430b246d85501da136",
-  "b_manifest_sha256": "300aef9b8ff19272c5e8ad6fbe6c38b2222bcebcb13740b16de666fa67d26312",
-  "played_at": "2026-10-01T20:45:15Z",
+  "a_manifest_sha256": "70832f21a5d024f37e50a094934c36bd68c8c178ab731cc7581b8c1abfb88989",
+  "b_manifest_sha256": "23fc1c8dcbf2f7ec8097156b271ca9631e16bc3a9672e770181a2aa376b4892a",
+  "played_at": "2026-10-02T23:10:06Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
@@ -12,8 +12,8 @@
   "official": true,
   "kinds": {
     "penalty": {
-      "a_points": 142,
-      "b_points": 258,
+      "a_points": 143,
+      "b_points": 257,
       "draws": 0,
       "a_as_blue": {
         "a": 8,
@@ -21,27 +21,27 @@
         "draws": 0
       },
       "b_as_blue": {
-        "a": 134,
-        "b": 66,
+        "a": 135,
+        "b": 65,
         "draws": 0
       }
     },
     "kickoff": {
-      "a_points": 23,
-      "b_points": 84,
-      "draws": 293,
+      "a_points": 17,
+      "b_points": 88,
+      "draws": 295,
       "a_as_blue": {
-        "a": 12,
+        "a": 8,
         "b": 37,
-        "draws": 151
+        "draws": 155
       },
       "b_as_blue": {
-        "a": 11,
-        "b": 47,
-        "draws": 142
+        "a": 9,
+        "b": 51,
+        "draws": 140
       }
     }
   },
-  "a_points": 165,
-  "b_points": 342
+  "a_points": 160,
+  "b_points": 345
 }

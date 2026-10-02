@@ -1,9 +1,9 @@
 {
   "a": "pisty-reproduction-phase-1",
   "b": "starter-kit-45-minutes",
-  "a_manifest_sha256": "71dae4f0acf94662eefa19c42a02679e0338d41241ca0091b82006390ab7df22",
-  "b_manifest_sha256": "300aef9b8ff19272c5e8ad6fbe6c38b2222bcebcb13740b16de666fa67d26312",
-  "played_at": "2026-10-01T20:35:41Z",
+  "a_manifest_sha256": "ae6dc341c09f0f110903eae4cc42a8e6ecc8f12a0fa1b0c9750d37eb74c0020f",
+  "b_manifest_sha256": "23fc1c8dcbf2f7ec8097156b271ca9631e16bc3a9672e770181a2aa376b4892a",
+  "played_at": "2026-10-02T23:01:13Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
@@ -27,21 +27,21 @@
       }
     },
     "kickoff": {
-      "a_points": 36,
-      "b_points": 122,
-      "draws": 242,
+      "a_points": 43,
+      "b_points": 117,
+      "draws": 240,
       "a_as_blue": {
-        "a": 16,
-        "b": 64,
-        "draws": 120
+        "a": 23,
+        "b": 65,
+        "draws": 112
       },
       "b_as_blue": {
         "a": 20,
-        "b": 58,
-        "draws": 122
+        "b": 52,
+        "draws": 128
       }
     }
   },
-  "a_points": 222,
-  "b_points": 336
+  "a_points": 229,
+  "b_points": 331
 }

@@ -1,9 +1,9 @@
 {
   "a": "pisty-reproduction-phase-1",
   "b": "random-actions",
-  "a_manifest_sha256": "71dae4f0acf94662eefa19c42a02679e0338d41241ca0091b82006390ab7df22",
-  "b_manifest_sha256": "1cd8bdffb53c735fb6e3c6f5ec9e2f4aed6a7e573feb8a430b246d85501da136",
-  "played_at": "2026-10-01T20:34:02Z",
+  "a_manifest_sha256": "ae6dc341c09f0f110903eae4cc42a8e6ecc8f12a0fa1b0c9750d37eb74c0020f",
+  "b_manifest_sha256": "70832f21a5d024f37e50a094934c36bd68c8c178ab731cc7581b8c1abfb88989",
+  "played_at": "2026-10-02T22:59:41Z",
   "benchmark_version": "0.1.0",
   "episodes_per_direction": 200,
   "seed": 0,
@@ -12,8 +12,8 @@
   "official": true,
   "kinds": {
     "penalty": {
-      "a_points": 249,
-      "b_points": 151,
+      "a_points": 250,
+      "b_points": 150,
       "draws": 0,
       "a_as_blue": {
         "a": 66,
@@ -21,27 +21,27 @@
         "draws": 0
       },
       "b_as_blue": {
-        "a": 183,
-        "b": 17,
+        "a": 184,
+        "b": 16,
         "draws": 0
       }
     },
     "kickoff": {
-      "a_points": 50,
-      "b_points": 80,
-      "draws": 270,
+      "a_points": 48,
+      "b_points": 83,
+      "draws": 269,
       "a_as_blue": {
         "a": 25,
-        "b": 32,
-        "draws": 143
+        "b": 44,
+        "draws": 131
       },
       "b_as_blue": {
-        "a": 25,
-        "b": 48,
-        "draws": 127
+        "a": 23,
+        "b": 39,
+        "draws": 138
       }
     }
   },
-  "a_points": 299,
-  "b_points": 231
+  "a_points": 298,
+  "b_points": 233
 }
