@@ -1,0 +1,16 @@
+{
+  "name": "Dry Run Bot",
+  "slug": "dry-run-bot",
+  "author": "yogyam",
+  "github": "yogyam",
+  "model_url": "https://github.com/yogyam/dry-run-bot/releases/download/v1/dry-run-bot.sealed",
+  "sealed_sha256": "6570fd48fe8e982d8f32299022edaf17d89135d2a785351bbb64c72a77b4a17b",
+  "model_sha256": "a45a8f77c5b77a669f43bd20765203752f2a017023fcca61f9652d0cde3832f1",
+  "model_bytes": 681471,
+  "sealed_with": "A5qpREy29+fAkNAIt4tIsdGfjQnI9DNIoYHxPH6AbBA=",
+  "interface_version": 1,
+  "submitted": "2026-10-02",
+  "description": "A test entry: the starter kit after five minutes, to try the submission flow end to end.",
+  "homepage": "",
+  "public_model_url": ""
+}
