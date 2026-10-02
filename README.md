@@ -26,7 +26,7 @@ Every scored bot's first episodes can be watched in the browser, in 3D:
 
 ## Try it
 
-Needs Python 3.11, 3.12 or 3.13. Tested on Linux, macOS (Apple Silicon) and Windows in CI.
+Needs Python 3.11 or 3.12 (3.13 waits on a dependency). Tested on Linux, macOS (Apple Silicon) and Windows in CI.
 
 ```bash
 git clone https://github.com/yogyam/boost-arena.git

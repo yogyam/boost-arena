@@ -27,7 +27,7 @@ Dates are when the change reached `main`. Versions of the interface, task set an
 
 ### Project
 - The service installs from a hash-locked `requirements.lock`, and every result records the library versions it was made with.
-- Lint and format checks (ruff), tests on Linux, macOS and Windows for Python 3.11 to 3.13, and the starter kit tested in CI.
+- Lint and format checks (ruff), tests on Linux, macOS and Windows for Python 3.11 and 3.12, and the starter kit tested in CI. Python 3.13 is not supported until rlgym-rocket-league allows numpy 2.
 - CONTRIBUTING.md, CODE_OF_CONDUCT.md, CITATION.cff, `.editorconfig`.
 - The starter kit uses the curriculum phase's learning rate and discount when a run starts or resumes.
 - The simulator version in results is read from the installed package rather than a constant.
