@@ -1,7 +1,7 @@
 {
   "name": "Starter kit, 45 minutes",
   "slug": "starter-kit-45-minutes",
-  "author": "yogyam",
+  "author": "Boost Arena",
   "github": "yogyam",
   "model_url": "https://github.com/yogyam/boost-arena/releases/download/baselines/starter-kit-45-minutes.sealed",
   "sealed_sha256": "afd6fb002afaa4034a2f487daf0468dc43d58e281323c84402543682bf285c80",
@@ -10,7 +10,7 @@
   "sealed_with": "A5qpREy29+fAkNAIt4tIsdGfjQnI9DNIoYHxPH6AbBA=",
   "interface_version": 1,
   "submitted": "2026-09-30",
-  "description": "What the starter kit produces after 45 minutes on a laptop: 72M steps of phase 1, 256-wide network, no GPU.",
+  "description": "Reference bot: what the starter kit gives after 45 minutes on a laptop CPU, 72M steps, unchanged settings.",
   "homepage": "https://github.com/yogyam/boost-arena/blob/main/docs/STARTER_KIT.md",
   "public_model_url": ""
 }

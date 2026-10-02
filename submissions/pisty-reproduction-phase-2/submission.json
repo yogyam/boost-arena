@@ -1,7 +1,7 @@
 {
-  "name": "PISTY reproduction, phase 2",
+  "name": "PISTY reproduction (phase 2)",
   "slug": "pisty-reproduction-phase-2",
-  "author": "yogyam",
+  "author": "Boost Arena",
   "github": "yogyam",
   "model_url": "https://github.com/yogyam/boost-arena/releases/download/baselines/pisty-reproduction-phase-2.sealed",
   "sealed_sha256": "73849cbac691283b8a5568d4d6bfa99528a6bac1c4ef67f8f6c2fd9814ec4e7f",
@@ -10,7 +10,7 @@
   "sealed_with": "A5qpREy29+fAkNAIt4tIsdGfjQnI9DNIoYHxPH6AbBA=",
   "interface_version": 1,
   "submitted": "2026-09-29",
-  "description": "Trained for 800M steps on the paper's phases 1 and 2, on a MacBook.",
+  "description": "Reference bot: phases 1 and 2 of the paper's curriculum, 800M steps.",
   "homepage": "",
   "public_model_url": ""
 }
