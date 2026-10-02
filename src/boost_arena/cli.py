@@ -150,14 +150,14 @@ def _cmd_submit(args):
         print(f"Not accepted: {e}")
         return 1
 
-    folder = os.path.join(args.output, manifest.slug)
-    print(f"Wrote {folder}/")
+    print(f"Wrote {args.output}/")
     print(
-        f"  {manifest.slug}.sealed    the sealed model, {manifest.model_bytes / 1e6:.1f} MB. Put this somewhere public over https"
+        f"  {manifest.slug}.sealed            the sealed model, {manifest.model_bytes / 1e6:.1f} MB. Put this somewhere public over https"
     )
-    print(f"  submission.json   the manifest. Copy it to submissions/{manifest.slug}/ in a pull request")
+    print(f"  {manifest.slug}/submission.json  the manifest. Copy the folder to submissions/{manifest.slug}/ in a pull request")
     if not manifest.model_url:
-        print("Then fill in model_url in submission.json with the address of the sealed file.")
+        print("Then fill in model_url in submission.json with the address of the sealed file,")
+        print(f"and check it with: boost-arena verify-submission {os.path.join(args.output, manifest.slug)}")
     return 0
 
 

@@ -52,7 +52,7 @@ def make(tmp_path, keys, model_path, name="Test Bot", github="tester", **kwargs)
     manifest = make_submission(model_path, public, name, "Tester", github, str(submissions), **kwargs)
     folder = submissions / manifest.slug
     # The sealed file is moved out of the folder, as if hosted elsewhere, and the manifest points at it
-    sealed = folder / f"{manifest.slug}.sealed"
+    sealed = submissions / f"{manifest.slug}.sealed"
     hosted = tmp_path / "hosted"
     hosted.mkdir(exist_ok=True)
     sealed.rename(hosted / sealed.name)

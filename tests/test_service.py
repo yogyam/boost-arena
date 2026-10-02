@@ -28,7 +28,7 @@ def submit(tmp_path, public, name, github):
     model.write_bytes(distinct_model(name))
     manifest = make_submission(str(model), public, name, "Tester", github, str(tmp_path / "submissions"))
     folder = tmp_path / "submissions" / manifest.slug
-    sealed = folder / f"{manifest.slug}.sealed"
+    sealed = tmp_path / "submissions" / f"{manifest.slug}.sealed"
     hosted = tmp_path / "hosted"
     hosted.mkdir(exist_ok=True)
     sealed.rename(hosted / sealed.name)

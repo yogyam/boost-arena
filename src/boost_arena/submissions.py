@@ -209,7 +209,9 @@ def make_submission(
     public_model_url: str = "",
     model_url: str = "",
 ) -> Manifest:
-    """Seals the model and writes the sealed file and manifest into `output_folder/<slug>/`.
+    """Seals the model. Writes the manifest into `output_folder/<slug>/` and the sealed file
+    beside that folder, as `output_folder/<slug>.sealed`, so the folder is exactly what goes
+    into the pull request and can be checked with `verify-submission` as it is.
 
     `model_url` is where the entrant will host the sealed file. It can be filled in later.
     """
@@ -247,7 +249,7 @@ def make_submission(
 
     folder = os.path.join(output_folder, slug)
     os.makedirs(folder, exist_ok=True)
-    with open(os.path.join(folder, f"{slug}.sealed"), "wb") as f:
+    with open(os.path.join(output_folder, f"{slug}.sealed"), "wb") as f:
         f.write(sealed)
     with open(os.path.join(folder, MANIFEST_NAME), "w", encoding="utf-8") as f:
         json.dump(manifest.to_dict(), f, indent=2)

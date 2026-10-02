@@ -25,12 +25,12 @@ boost-arena submit my_bot.onnx --name "My Bot" --author "your name or handle" --
 
 Optional flags: `--description` (one line about the bot), `--homepage` (an https link), and `--public-model-url` if you publish the model yourself and want it linked.
 
-This writes a folder `my_submission/my-bot/` with two files:
+This writes two things under `my_submission/`:
 
 | File | What it is |
 |---|---|
 | `my-bot.sealed` | Your model, sealed. About the size of the model. |
-| `submission.json` | The manifest: name, author, GitHub login, checksums, and where the sealed file will be. |
+| `my-bot/submission.json` | The manifest: name, author, GitHub login, checksums, and where the sealed file will be. |
 
 ## 2. Host the sealed file
 
@@ -40,11 +40,17 @@ Put `my-bot.sealed` somewhere public with an `https://` address that serves the 
 2. Attach `my-bot.sealed` to it.
 3. After publishing, right-click the attachment and copy its link.
 
-Then open `submission.json` and put that link in `model_url`. Keep the file where it is: the scoring service downloads it once, when it scores your bot.
+Then open `my-bot/submission.json` and put that link in `model_url`. Keep the file where it is: the scoring service downloads it once, when it scores your bot.
+
+You can run the same check the pull request will run:
+
+```bash
+boost-arena verify-submission my_submission/my-bot
+```
 
 ## 3. Open a pull request
 
-Fork this repository, then add your manifest at `submissions/my-bot/submission.json`, where `my-bot` is the `slug` from the manifest. Nothing else goes in the folder, and the pull request must change nothing else.
+Fork this repository, then copy the folder `my_submission/my-bot/` to `submissions/my-bot/`, where `my-bot` is the `slug` from the manifest. Only `submission.json` goes in the folder, and the pull request must change nothing else.
 
 Open the pull request from the GitHub account named in the manifest. A check runs within a minute or two and reports whether the manifest and the sealed file are in order, whether the model or name is already on the leaderboard, and whether you are within the limit of three scorings per 30 days. Fix anything it reports by updating the pull request.
 
