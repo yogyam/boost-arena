@@ -1,0 +1,47 @@
+{
+  "a": "dry-run-bot",
+  "b": "random-actions",
+  "a_manifest_sha256": "e5e6000d0bccea5e437957e18f2783c0c7a3e3981f04d917b8f7ae916f08c1e7",
+  "b_manifest_sha256": "1cd8bdffb53c735fb6e3c6f5ec9e2f4aed6a7e573feb8a430b246d85501da136",
+  "played_at": "2026-10-02T21:45:22Z",
+  "benchmark_version": "0.1.0",
+  "episodes_per_direction": 200,
+  "seed": 0,
+  "season": 1,
+  "duel_set_version": 1,
+  "official": true,
+  "kinds": {
+    "penalty": {
+      "a_points": 190,
+      "b_points": 210,
+      "draws": 0,
+      "a_as_blue": {
+        "a": 7,
+        "b": 193,
+        "draws": 0
+      },
+      "b_as_blue": {
+        "a": 183,
+        "b": 17,
+        "draws": 0
+      }
+    },
+    "kickoff": {
+      "a_points": 1,
+      "b_points": 3,
+      "draws": 396,
+      "a_as_blue": {
+        "a": 1,
+        "b": 1,
+        "draws": 198
+      },
+      "b_as_blue": {
+        "a": 0,
+        "b": 2,
+        "draws": 198
+      }
+    }
+  },
+  "a_points": 191,
+  "b_points": 213
+}

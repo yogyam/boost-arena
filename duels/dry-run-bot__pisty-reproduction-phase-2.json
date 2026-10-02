@@ -1,0 +1,47 @@
+{
+  "a": "dry-run-bot",
+  "b": "pisty-reproduction-phase-2",
+  "a_manifest_sha256": "e5e6000d0bccea5e437957e18f2783c0c7a3e3981f04d917b8f7ae916f08c1e7",
+  "b_manifest_sha256": "89ab247bd435d9cd742b11c95407ed0ab11d28367e5343c327075300e37d010c",
+  "played_at": "2026-10-02T21:42:31Z",
+  "benchmark_version": "0.1.0",
+  "episodes_per_direction": 200,
+  "seed": 0,
+  "season": 1,
+  "duel_set_version": 1,
+  "official": true,
+  "kinds": {
+    "penalty": {
+      "a_points": 71,
+      "b_points": 329,
+      "draws": 0,
+      "a_as_blue": {
+        "a": 0,
+        "b": 200,
+        "draws": 0
+      },
+      "b_as_blue": {
+        "a": 71,
+        "b": 129,
+        "draws": 0
+      }
+    },
+    "kickoff": {
+      "a_points": 1,
+      "b_points": 131,
+      "draws": 268,
+      "a_as_blue": {
+        "a": 1,
+        "b": 65,
+        "draws": 134
+      },
+      "b_as_blue": {
+        "a": 0,
+        "b": 66,
+        "draws": 134
+      }
+    }
+  },
+  "a_points": 72,
+  "b_points": 460
+}
