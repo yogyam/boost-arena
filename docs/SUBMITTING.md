@@ -2,7 +2,7 @@
 
 Four steps: seal your model, host the sealed file, open a pull request, and wait for the score.
 
-Your model is sealed with the project's public key before it leaves your computer. Only the scoring service can open it. The project publishes your scores and never publishes your model.
+Your model is encrypted ("sealed") with the project's public key before it leaves your computer, so nobody who finds the file can open it. **The scoring service can, and the scoring service is the maintainer.** Submitting means giving the maintainer a copy of your weights and trusting the rule that they are used for scoring only and never published or kept. Nothing technical enforces that rule. If you are not comfortable with it, don't submit; the scoring tool works on your own machine for your own use.
 
 ## 1. Seal the model
 

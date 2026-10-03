@@ -2,7 +2,9 @@
 
 An entrant seals their model with the project's public key and can then put the sealed
 file anywhere public. Only the holder of the matching private key, the scoring service,
-can open it. The project never publishes the model itself.
+can open it. That protects the model from everyone else; it does not protect it from
+the maintainer, who holds the key. Not publishing models is a rule, not a property of
+this code.
 
 The scheme is a standard sealed box: a fresh X25519 key pair for every file, a shared
 secret with the project's key, a key derived from it with HKDF-SHA256, and the model

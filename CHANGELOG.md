@@ -5,6 +5,7 @@ Dates are when the change reached `main`. Versions of the interface, task set an
 ## Unreleased
 
 ### Rules (version 2)
+- The docs say plainly what sealing does and does not protect against: the maintainer holds the key and can open submissions; not publishing models is a promise, not a mechanism.
 - Three scorings per person per 30 days, counting updates; one GitHub account per person.
 - Seasons: the scoring seed changes each season and every bot is scored again. Season 1 uses seed 0, so existing scores stand.
 - Entries under question are flagged on the leaderboard (`flags.json`).

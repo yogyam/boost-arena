@@ -14,7 +14,7 @@ Bots are scored in [RocketSim](https://github.com/ZealanL/RocketSim), an open-so
 
 1. **Everyone uses the same interface.** A bot sees 53 numbers describing the ball and cars, and picks one of 90 actions, 15 times a second. See [docs/INTERFACE.md](docs/INTERFACE.md).
 2. **You train your own way.** Any framework, any method, any hardware.
-3. **You submit one model file**, in ONNX format, sealed so that only the scoring service can open it. No code is submitted or run, and the project never publishes your model. Each model is scored in its own process with time and memory limits.
+3. **You submit one model file**, in ONNX format, encrypted so that nobody but the scoring service can open it. No code is submitted or run. Be clear about what that protects: the file is safe from anyone who finds it on the internet, but the scoring service is run by the maintainer, who holds the key and could open any submission. The rule is that models are never published or kept beyond scoring, and that rule rests on trusting the maintainer, not on cryptography. If handing over your weights is not acceptable to you, don't submit them; see [RULES.md](RULES.md). Each model is scored in its own process with time and memory limits.
 4. **Every bot faces the same situations** in a season and gets a success rate and a time to score for each task. The situations change each season, so there is nothing to gain from tuning to them.
 5. **The leaderboard** is at https://yogyam.github.io/boost-arena/ and is rebuilt after every scoring run. Every bot's first five episodes of each task can be watched in the browser, and they are the same situations for every bot.
 
@@ -97,7 +97,7 @@ From any other framework, export your policy network to ONNX with an input of sh
 
 ## Rules
 
-See [RULES.md](RULES.md). In short: the project is free and non-commercial, bots are for the simulator and for research, nothing here may be used to play online against people, the project never publishes model files, and each person may have three bots and three scorings per month.
+See [RULES.md](RULES.md). In short: the project is free and non-commercial, bots are for the simulator and for research, nothing here may be used to play online against people, the project never publishes model files (a promise by the maintainer, who can open submissions, not a technical guarantee), and each person may have three bots and three scorings per month.
 
 Want to change something? See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security problem? See [SECURITY.md](SECURITY.md). Maintainer notes are in [docs/MAINTAINING.md](docs/MAINTAINING.md), and changes in [CHANGELOG.md](CHANGELOG.md).
 

@@ -26,8 +26,9 @@ Boost Arena exists so people can learn reinforcement learning, compare methods f
 
 ## Model files
 
-1. **The project does not publish model files.** Scores and replays are public. Your sealed model is opened only to score it and is then discarded.
-2. **You may publish your own model** if you want to. That is your decision and your responsibility, and the rules above still apply to it.
+1. **The project does not publish model files, and does not keep them.** Scores and replays are public. Your sealed model is opened by the scoring service to score it and is discarded when the run ends.
+2. **Submitting means trusting the maintainer with your model.** The sealed file can be opened by whoever holds the project's private key: the maintainer. Rule 1 is a promise the maintainer makes, not something cryptography enforces. The scoring runs are public GitHub Actions logs and the private key is used only there, but a maintainer who wanted to could open any submission. Decide for yourself whether that is acceptable before you submit.
+3. **You may publish your own model** if you want to. That is your decision and your responsibility, and the rules above still apply to it.
 
 ## Strength
 

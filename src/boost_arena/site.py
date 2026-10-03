@@ -360,7 +360,7 @@ def render(documents: list, duels: list = None) -> str:
     enter = f'''<h2 id="enter">Enter your bot</h2>
 <div class="steps">
   <div class="step"><b>1 · Train</b>Any framework, any method. No bot yet? The <a href="{REPOSITORY}/blob/main/docs/STARTER_KIT.md">starter kit</a> trains one on a laptop in a couple of hours.</div>
-  <div class="step"><b>2 · Seal</b>Export the policy as ONNX, then <code>boost-arena submit my_bot.onnx --github you</code>. The model is sealed so only the scoring service can open it; it is never published.</div>
+  <div class="step"><b>2 · Seal</b>Export the policy as ONNX, then <code>boost-arena submit my_bot.onnx --github you</code>. The model is encrypted so nobody but the scoring service can open it. The service is run by the maintainer, so you are trusting them with it; the rule is that models are never published or kept.</div>
   <div class="step"><b>3 · Submit</b>Host the sealed file and open a pull request with the manifest. Once merged, scoring, duels and replays follow on their own.</div>
 </div>
 <p class="small">Full instructions: <a href="{REPOSITORY}/blob/main/docs/SUBMITTING.md">SUBMITTING.md</a>. The interface every bot uses: <a href="{REPOSITORY}/blob/main/docs/INTERFACE.md">INTERFACE.md</a>. The rules: <a href="{REPOSITORY}/blob/main/RULES.md">RULES.md</a>.</p>'''
